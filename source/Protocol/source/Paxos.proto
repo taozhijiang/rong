@@ -1,0 +1,103 @@
+syntax="proto2";
+package rong.Paxos;
+
+enum OpCode {
+    kRequestVote        = 1;
+    kAppendEntries      = 2;
+    kInstallSnapshot    = 3;
+};
+
+enum EntryType {
+    kNormal             = 1;
+    kConfigure          = 2;
+    kNoop               = 3;
+};
+
+
+message Entry {
+
+    required EntryType type = 1;
+
+    required uint64 term    = 2; // the term when entry was created
+
+    optional bytes data     = 4;
+    optional bytes context  = 5;
+};
+
+message RequestVoteOps {
+
+    message Request {
+        required uint64 term            = 1; // candidate's term
+        required uint64 candidate_id    = 2; // candidate's id
+        required uint64 last_log_index  = 3; // index of candidate's last log entry
+        required uint64 last_log_term   = 4; // term of candidate's last log entry
+
+        // 因为RPC是异步响应的，所以该epoch需要传递并回传
+        // 之所以传递这个参数是需要保证系统读取的线性一致性
+        // 设想：如果在Leader检查的时候增加了这个值，但是在Leader检查之前发起了一个
+        //       写请求的RPC，则这个RPC响应如果直接取本地的epoch，就得不到一致性的结果
+        required uint64 epoch           = 9;
+    }
+
+    message Response {
+        required uint64 term            = 1; // callee's term
+        required bool   vote_granted    = 2;
+        required uint64 peer_id         = 3; // 因为是异步应答的，所以需要带上应答者ID
+
+        optional bool   log_ok          = 5; // hint for caller's log update to date
+        
+        required uint64 epoch           = 9;
+    }
+}
+
+
+message AppendEntriesOps {
+
+    message Request {
+        required uint64 term            = 1; // leader's term
+        required uint64 leader_id       = 2; // id of caller(leader), send to calle's
+        required uint64 prev_log_index  = 3;
+        required uint64 prev_log_term   = 4;
+
+        repeated Entry  entries         = 5;
+        required uint64 leader_commit   = 6; // leade's commit index
+
+        required uint64 epoch           = 9;
+    }
+
+    message Response {
+        required uint64 term            = 1; 
+        required bool   success         = 2; // true if fellower contained entry match prev_log_index/term
+        required uint64 peer_id         = 3; // 因为是异步应答的，所以需要带上应答者ID
+
+        required uint64 last_log_index  = 5; // 返回Peer的last_log_index
+
+        required uint64 epoch           = 9;
+    }
+}
+
+// 暂时只支持整个快照一次性发送
+message InstallSnapshotOps {
+
+    message Request {
+        required uint64 term            = 1; 
+        required uint64 leader_id       = 2; // id of caller(leader), send to calle's
+
+        required uint64 last_included_index = 3;
+        required uint64 last_included_term = 4;
+        
+        required bytes  data            = 5;
+
+        required uint64 epoch           = 9;
+    }
+
+    message Response {
+        required uint64 term            = 1;
+        required uint64 peer_id         = 2; // 因为是异步应答的，所以需要带上应答者ID
+
+        optional uint64 bytes_stored    = 5; // 成功则设置这个值 
+
+        required uint64 epoch           = 9;
+    }
+}
+

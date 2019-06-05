@@ -1,0 +1,55 @@
+syntax="proto2";
+package rong.Control;
+
+enum OpCode {
+    kSnapshot   = 1;
+    kStat       = 2;
+};
+
+
+// 发起快照
+message ControlSnapshotOps {
+
+    message Request {
+
+        message Snapshot {
+            required string hint        = 1;
+        }
+        optional Snapshot snapshot      = 5;
+    }
+
+    message Response {
+
+        required int32  code            = 1;
+        required string msg             = 2;
+
+        message Snapshot {
+            required string hint        = 1;
+        }
+        optional Snapshot snapshot      = 5;
+    }
+}
+
+
+message ControlStatOps {
+
+    message Request {
+
+        // 获取服务的状态信息
+        message Stat {
+            required string hint        = 1;
+        }
+        optional Stat stat              = 5;
+    }
+
+    message Response {
+
+        required int32  code            = 1;
+        required string msg             = 2;
+
+        message Stat {
+            required bytes context      = 1;
+        }
+        optional Stat stat              = 5;
+    }
+}

@@ -1,0 +1,16 @@
+syntax="proto2";
+package rong.PaxosLogMetadata;
+
+
+// Reserved RaftLogMeta Keys:
+// META_CURRENT_TERM
+// META_VOTE_FOR
+// META_COMMIT_INDEX
+// META_APPLY_INDEX
+
+message Metadata {
+    optional uint64 current_term    = 1;
+    optional uint64 voted_for       = 2;
+    optional uint64 commit_index    = 3;
+    optional uint64 apply_index     = 4;
+}

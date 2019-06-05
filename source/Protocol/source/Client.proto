@@ -1,0 +1,85 @@
+syntax="proto2";
+package rong.Client;
+
+enum OpCode {
+    kSelect     = 1;
+    kUpdate     = 2;
+};
+
+// 对于protobuf中的string和bytes，在C++中其底层都是std::string来实现的，只是
+// 对string类型的串会进行UTF-8编码的校验，失败的话会抛出运行时错误
+
+
+// 不涉及状态机变更的修改
+message StateMachineSelectOps {
+
+    message Request {
+
+        message Read {
+            required string key         = 1;
+        }
+        optional Read read              = 10;
+
+        message Range {
+            optional string start_key   = 1;
+            optional string end_key     = 2;
+            optional uint64 limit       = 3;
+        }
+        optional Range range            = 11;
+
+        message Search {
+            optional string search_key  = 1;
+            optional uint64 limit       = 2;
+        }
+        optional Search search          = 12;
+    }
+
+    message Response {
+
+        required int32  code            = 1;
+        required string msg             = 2;
+
+        message Read {
+            required bytes content      = 1;
+        }
+        optional Read read              = 10;
+
+        message Range {
+            repeated bytes contents     = 1;
+        }
+        optional Range range            = 11;
+
+        message Search {
+            repeated bytes contents     = 1;
+        }
+        optional Search search          = 12;
+    }
+}
+
+
+message StateMachineUpdateOps {
+
+    message Request {
+
+        message Write {
+            required string key         = 1;
+            required bytes  content     = 2;
+        }
+        optional Write write            = 5;
+
+        message Remove {
+            required string key         = 1;
+        }
+        optional Remove remove          = 6;
+
+    }
+
+    message Response {
+        required int32  code            = 1;
+        required string msg             = 2;
+    
+        // marshal后业务层自己解析处理
+        optional bytes  context         = 5;
+
+    }
+}

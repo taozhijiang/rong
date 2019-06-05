@@ -1,0 +1,22 @@
+syntax="proto2";
+package rong.Snapshot;
+
+// 涉及到状态机的序列化和反序列化使用
+
+message KeyValue {
+    required bytes key   = 1;
+    required bytes value = 2;
+};
+
+
+// snapshot covers log entries in the range [1, lastIncludedIndex].
+message Metadata {
+    required uint64 last_included_index    = 1;
+    required uint64 last_included_term     = 2;
+}
+
+// Snapshot format
+message SnapshotContent {
+    required Metadata meta  = 1;
+    repeated KeyValue data  = 2;
+}
