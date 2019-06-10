@@ -10,11 +10,23 @@
 
 #include <xtra_rhel.h>
 
+#include "MasterLease.h"
+#include "LeaseState.h"
 
 namespace rong {
 
 class LeaseLearner {
 
+public:
+    explicit LeaseLearner(MasterLease& master_lease):
+        master_lease_(master_lease) {
+        state_.init();
+    }
+
+private:
+
+    LeaseLearnerState state_;
+    MasterLease& master_lease_;
 };
 
 

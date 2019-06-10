@@ -183,7 +183,9 @@ void ClientService::handle_RPC(std::shared_ptr<RpcInstance> rpc_instance) {
 
 
 void ClientService::client_select_impl(std::shared_ptr<RpcInstance> rpc_instance) {
-#if 0
+
+    std::lock_guard<std::mutex> lock(paxos_instance_mutex_);
+
     RpcRequestMessage& rpc_request_message = rpc_instance->get_rpc_request_message();
     if (rpc_request_message.header_.opcode != rong::Client::OpCode::kSelect) {
         roo::log_err("invalid opcode %u in service Client.", rpc_request_message.header_.opcode);
@@ -191,8 +193,9 @@ void ClientService::client_select_impl(std::shared_ptr<RpcInstance> rpc_instance
         return;
     }
 
-    // 考虑Legacy读优化性能？
+    // 考虑Stale读进行性能优化？
 
+#if 0
     // 检查是否是Leader，如果不是就将其请求转发给Leader，然后再将结果返回给Client
     if (!Captain::instance().raft_consensus_ptr_->is_leader()) {
         uint64_t leader_id = Captain::instance().raft_consensus_ptr_->current_leader();
@@ -220,10 +223,11 @@ void ClientService::client_select_impl(std::shared_ptr<RpcInstance> rpc_instance
         rpc_instance->reply_rpc_message(proxy_response_str);
         return;
     }
+#endif
 
     // 如果是Leader，则直接处理请求
     std::string response_str;
-    int ret = Captain::instance().raft_consensus_ptr_->state_machine_query(rpc_request_message.payload_, response_str);
+    int ret = Captain::instance().paxos_consensus_ptr_->state_machine_select(rpc_request_message.payload_, response_str);
     if (ret != 0) {
         roo::log_err("handle StateMachineSelectOps return %d", ret);
         rpc_instance->reject(RpcResponseStatus::SYSTEM_ERROR);
@@ -232,12 +236,13 @@ void ClientService::client_select_impl(std::shared_ptr<RpcInstance> rpc_instance
 
     rpc_instance->reply_rpc_message(response_str);
     return;
-#endif
 }
 
 // 该接口是异步处理的，Raft将其创建为日志处理
 void ClientService::client_update_impl(std::shared_ptr<RpcInstance> rpc_instance) {
-#if 0
+
+    std::lock_guard<std::mutex> lock(paxos_instance_mutex_);
+
     RpcRequestMessage& rpc_request_message = rpc_instance->get_rpc_request_message();
     if (rpc_request_message.header_.opcode != rong::Client::OpCode::kUpdate) {
         roo::log_err("invalid opcode %u in service Client.", rpc_request_message.header_.opcode);
@@ -245,6 +250,7 @@ void ClientService::client_update_impl(std::shared_ptr<RpcInstance> rpc_instance
         return;
     }
 
+#if 0
     // 检查是否是Leader，如果不是就将其请求转发给Leader，然后再将结果返回给Client
     if (!Captain::instance().raft_consensus_ptr_->is_leader()) {
         uint64_t leader_id = Captain::instance().raft_consensus_ptr_->current_leader();
@@ -272,10 +278,11 @@ void ClientService::client_update_impl(std::shared_ptr<RpcInstance> rpc_instance
         rpc_instance->reply_rpc_message(proxy_response_str);
         return;
     }
+#endif
 
     // 尝试创建日志，其内容是protobuf序列化的字符串，状态机需要解析处理
     std::string response_str;
-    int ret = Captain::instance().raft_consensus_ptr_->state_machine_modify(rpc_request_message.payload_, response_str);
+    int ret = Captain::instance().paxos_consensus_ptr_->state_machine_update(rpc_request_message.payload_, response_str);
     if (ret != 0) {
         roo::log_err("handle Raft append_entries return %d", ret);
         rpc_instance->reject(RpcResponseStatus::SYSTEM_ERROR);
@@ -284,7 +291,6 @@ void ClientService::client_update_impl(std::shared_ptr<RpcInstance> rpc_instance
 
     rpc_instance->reply_rpc_message(response_str);
     return;
-#endif
 }
 
 

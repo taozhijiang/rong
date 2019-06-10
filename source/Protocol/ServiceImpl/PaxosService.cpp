@@ -166,14 +166,11 @@ void PaxosService::handle_RPC(std::shared_ptr<RpcInstance> rpc_instance) {
 
     // Call the appropriate RPC handler based on the request's opCode.
     switch (rpc_instance->get_opcode()) {
-        case OpCode::kRequestVote:
-            request_vote_impl(rpc_instance);
+        case OpCode::kPaxosLease:
+            paxos_lease_impl(rpc_instance);
             break;
-        case OpCode::kAppendEntries:
-            append_entries_impl(rpc_instance);
-            break;
-        case OpCode::kInstallSnapshot:
-            install_snapshot_impl(rpc_instance);
+        case OpCode::kPaxosBasic:
+            paxos_basic_impl(rpc_instance);
             break;
 
         default:
@@ -185,24 +182,24 @@ void PaxosService::handle_RPC(std::shared_ptr<RpcInstance> rpc_instance) {
 }
 
 
-void PaxosService::request_vote_impl(std::shared_ptr<RpcInstance> rpc_instance) {
-#if 0
+void PaxosService::paxos_lease_impl(std::shared_ptr<RpcInstance> rpc_instance) {
+
     RpcRequestMessage& rpc_request_message = rpc_instance->get_rpc_request_message();
-    if (rpc_request_message.header_.opcode != kan::Raft::OpCode::kRequestVote) {
-        roo::log_err("invalid opcode %u in service Raft.", rpc_request_message.header_.opcode);
+    if (rpc_request_message.header_.opcode != rong::Paxos::OpCode::kPaxosLease) {
+        roo::log_err("invalid opcode %u in service Paxos.", rpc_request_message.header_.opcode);
         rpc_instance->reject(RpcResponseStatus::INVALID_REQUEST);
         return;
     }
 
-    kan::Raft::RequestVoteOps::Request  request;
+    rong::Paxos::LeaseMessage request;
     if (!roo::ProtoBuf::unmarshalling_from_string(rpc_request_message.payload_, &request)) {
         roo::log_err("unmarshal request failed.");
         rpc_instance->reject(RpcResponseStatus::INVALID_REQUEST);
         return;
     }
 
-    kan::Raft::RequestVoteOps::Response response;
-    int ret = Captain::instance().raft_consensus_ptr_->handle_request_vote_request(request, response);
+    rong::Paxos::LeaseMessage response;
+    int ret = Captain::instance().paxos_consensus_ptr_->handle_paxos_lease_request(request, response);
     if (ret != 0) {
         roo::log_err("handle request_vote return %d", ret);
         rpc_instance->reject(RpcResponseStatus::SYSTEM_ERROR);
@@ -212,27 +209,28 @@ void PaxosService::request_vote_impl(std::shared_ptr<RpcInstance> rpc_instance) 
     std::string response_str;
     roo::ProtoBuf::marshalling_to_string(response, &response_str);
     rpc_instance->reply_rpc_message(response_str);
-#endif
+
+    return;
 }
 
-void PaxosService::append_entries_impl(std::shared_ptr<RpcInstance> rpc_instance) {
-#if 0
+void PaxosService::paxos_basic_impl(std::shared_ptr<RpcInstance> rpc_instance) {
+
     RpcRequestMessage& rpc_request_message = rpc_instance->get_rpc_request_message();
-    if (rpc_request_message.header_.opcode != kan::Raft::OpCode::kAppendEntries) {
-        roo::log_err("invalid opcode %u in service Raft.", rpc_request_message.header_.opcode);
+    if (rpc_request_message.header_.opcode != rong::Paxos::OpCode::kPaxosBasic) {
+        roo::log_err("invalid opcode %u in service Paxos.", rpc_request_message.header_.opcode);
         rpc_instance->reject(RpcResponseStatus::INVALID_REQUEST);
         return;
     }
 
-    kan::Raft::AppendEntriesOps::Request  request;
+    rong::Paxos::BasicMessage request;
     if (!roo::ProtoBuf::unmarshalling_from_string(rpc_request_message.payload_, &request)) {
         roo::log_err("unmarshal request failed.");
         rpc_instance->reject(RpcResponseStatus::INVALID_REQUEST);
         return;
     }
 
-    kan::Raft::AppendEntriesOps::Response response;
-    int ret = Captain::instance().raft_consensus_ptr_->handle_append_entries_request(request, response);
+    rong::Paxos::BasicMessage response;
+    int ret = Captain::instance().paxos_consensus_ptr_->handle_paxos_basic_request(request, response);
     if (ret != 0) {
         roo::log_err("handle append_entries return %d", ret);
         rpc_instance->reject(RpcResponseStatus::SYSTEM_ERROR);
@@ -242,38 +240,10 @@ void PaxosService::append_entries_impl(std::shared_ptr<RpcInstance> rpc_instance
     std::string response_str;
     roo::ProtoBuf::marshalling_to_string(response, &response_str);
     rpc_instance->reply_rpc_message(response_str);
-#endif
+
+    return;
 }
 
-void PaxosService::install_snapshot_impl(std::shared_ptr<RpcInstance> rpc_instance) {
-#if 0
-    RpcRequestMessage& rpc_request_message = rpc_instance->get_rpc_request_message();
-    if (rpc_request_message.header_.opcode != kan::Raft::OpCode::kInstallSnapshot) {
-        roo::log_err("invalid opcode %u in service Raft.", rpc_request_message.header_.opcode);
-        rpc_instance->reject(RpcResponseStatus::INVALID_REQUEST);
-        return;
-    }
-
-    kan::Raft::InstallSnapshotOps::Request  request;
-    if (!roo::ProtoBuf::unmarshalling_from_string(rpc_request_message.payload_, &request)) {
-        roo::log_err("unmarshal request failed.");
-        rpc_instance->reject(RpcResponseStatus::INVALID_REQUEST);
-        return;
-    }
-
-    kan::Raft::InstallSnapshotOps::Response response;
-    int ret = Captain::instance().raft_consensus_ptr_->handle_install_snapshot_request(request, response);
-    if (ret != 0) {
-        roo::log_err("handle install_snapshot return %d", ret);
-        rpc_instance->reject(RpcResponseStatus::SYSTEM_ERROR);
-        return;
-    }
-
-    std::string response_str;
-    roo::ProtoBuf::marshalling_to_string(response, &response_str);
-    rpc_instance->reply_rpc_message(response_str);
-#endif
-}
 
 
 } // namespace tzrpc

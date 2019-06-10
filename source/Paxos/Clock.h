@@ -12,7 +12,7 @@
 #include <chrono>
 
 // DEPRECATED...
-// 
+//
 // 如果直接处理时间的话可能会比较抓狂，所以这边采用逻辑时钟的概念
 // 来控制，即每 100ms定时器将当前的时钟值自增
 // 内部涉及到的Raft的定时器都采用这个时钟来驱动
@@ -23,7 +23,7 @@ namespace rong {
 
 #if __cplusplus >= 201103L
 typedef std::chrono::steady_clock               steady_clock;
-#else 
+#else
 typedef std::chrono::monotonic_clock            steady_clock;
 #endif
 

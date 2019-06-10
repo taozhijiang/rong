@@ -56,9 +56,8 @@ private:
 private:
 
     ////////// RPC handlers //////////
-    void request_vote_impl(std::shared_ptr<RpcInstance> rpc_instance);
-    void append_entries_impl(std::shared_ptr<RpcInstance> rpc_instance);
-    void install_snapshot_impl(std::shared_ptr<RpcInstance> rpc_instance);
+    void paxos_lease_impl(std::shared_ptr<RpcInstance> rpc_instance);
+    void paxos_basic_impl(std::shared_ptr<RpcInstance> rpc_instance);
 
     const std::string instance_name_;
 

@@ -9,12 +9,32 @@
 #define __PAXOS_BASIC_LEARNER_H__
 
 #include <xtra_rhel.h>
+#include <other/Log.h>
 
+#include <Protocol/gen-cpp/Paxos.pb.h>
+
+#include <Paxos/PaxosConsensus.h>
+#include "BasicState.h"
 
 namespace rong {
 
 class BasicLearner {
 
+public:
+    BasicLearner(PaxosConsensus& paxos_consensus) :
+        paxos_consensus_(paxos_consensus) {
+        state_.init();
+    }
+
+
+
+    BasicLearnerState& state() {
+        return state_;
+    }
+
+private:
+    BasicLearnerState state_;
+    PaxosConsensus& paxos_consensus_;
 };
 
 

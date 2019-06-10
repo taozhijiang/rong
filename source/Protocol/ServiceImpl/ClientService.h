@@ -20,7 +20,8 @@ class ClientService : public Service,
 public:
     explicit ClientService(const std::string& instance_name) :
         RpcServiceBase(instance_name),
-        instance_name_(instance_name) {
+        instance_name_(instance_name),
+        paxos_instance_mutex_() {
     }
 
     ~ClientService() = default;
@@ -58,11 +59,15 @@ private:
 private:
 
     ////////// RPC handlers //////////
+
     void client_select_impl(std::shared_ptr<RpcInstance> rpc_instance);
     void client_update_impl(std::shared_ptr<RpcInstance> rpc_instance);
 
     const std::string instance_name_;
 
+    // 下面的函数使用互斥锁来严格序列化依次执行，因为当前的
+    // Paxos的开放Instance只能为1
+    std::mutex paxos_instance_mutex_;
 };
 
 } // namespace tzrpc
