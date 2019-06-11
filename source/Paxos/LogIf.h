@@ -31,6 +31,8 @@ extern const char* const META_PROMISED_PROPOSAL_ID;
 extern const char* const META_ACCEPTED_PROPOSAL_ID;
 extern const char* const META_ACCEPTED_VALUE;
 
+extern const char* const META_APPLY_INSTANCE_ID;
+
 class LogIf {
 
     __noncopyable__(LogIf)
@@ -46,7 +48,7 @@ public:
 
     // 这里不是严格意义上的追加，而是应该再accept成功之后再添加指定instance_id索引位置的日志
     // 如果成功则返回值和传递的paxosId是一致的，否则就返回last_index
-    virtual uint64_t append(uint64_t index, const EntryPtr& newEntry) = 0;
+    virtual uint64_t append(const EntryPtr& newEntry) = 0;
 
     virtual EntryPtr entry(uint64_t index) const = 0;
     virtual bool     entries(uint64_t start, std::vector<EntryPtr>& entries, uint64_t limit = 0) const = 0;
@@ -60,6 +62,9 @@ public:
 
     virtual int meta_data(LogMeta* meta_data) const = 0;
     virtual int set_meta_data(const LogMeta& meta) const = 0;
+
+    virtual uint64_t meta_apply_instance_id() const = 0;
+    virtual int set_meta_apply_instance_id(uint64_t instance_id) const = 0;
 };
 
 

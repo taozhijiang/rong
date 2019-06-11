@@ -24,8 +24,8 @@ public:
     explicit LevelDBLog(const std::string& path);
     virtual ~LevelDBLog();
 
-    // 返回start_index, last_index
-    uint64_t append(uint64_t index, const EntryPtr& newEntry)override;
+
+    uint64_t append(const EntryPtr& newEntry)override;
 
     EntryPtr entry(uint64_t index) const override;
     bool     entries(uint64_t start, std::vector<EntryPtr>& entries, uint64_t limit) const override;
@@ -45,6 +45,9 @@ public:
     // Paxos运行状态元数据的持久化，在崩溃重启后修复使用
     int meta_data(LogMeta* meta_data) const override;
     int set_meta_data(const LogMeta& meta) const override;
+
+    uint64_t meta_apply_instance_id() const override;
+    int set_meta_apply_instance_id(uint64_t instance_id) const override;
 
 protected:
 

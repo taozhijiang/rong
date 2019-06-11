@@ -26,6 +26,8 @@ const char* const META_PROMISED_PROPOSAL_ID = "META_PROMISED_PROPOSAL_ID";
 const char* const META_ACCEPTED_PROPOSAL_ID = "META_ACCEPTED_PROPOSAL_ID";
 const char* const META_ACCEPTED_VALUE = "META_ACCEPTED_VALUE";
 
+const char* const META_APPLY_INSTANCE_ID = "META_APPLY_INSTANCE_ID";
+
 using roo::Endian;
 
 LevelDBLog::LevelDBLog(const std::string& path) :
@@ -87,14 +89,9 @@ LevelDBLog::~LevelDBLog() {
     log_meta_fp_.reset();
 }
 
-uint64_t LevelDBLog::append(uint64_t index, const EntryPtr& newEntry) {
+uint64_t LevelDBLog::append(const EntryPtr& newEntry) {
 
     std::lock_guard<std::mutex> lock(log_mutex_);
-
-    if (index > last_index_ + 1) {
-        roo::log_err("log gap, expect %ld, but get %ld", last_index_ + 1, index);
-        return last_index_ + 1;
-    }
 
     std::string buf;
     newEntry->SerializeToString(&buf);
@@ -270,6 +267,29 @@ int LevelDBLog::set_meta_data(const LogMeta& meta) const {
         return -1;
     }
 
+    return 0;
+}
+
+uint64_t LevelDBLog::meta_apply_instance_id() const {
+
+    std::string val;
+    leveldb::Status status
+            = log_meta_fp_->Get(leveldb::ReadOptions(), META_APPLY_INSTANCE_ID, &val);
+    if (status.ok())
+        return Endian::uint64_from_net(val);
+
+    return 0;
+}
+
+int LevelDBLog::set_meta_apply_instance_id(uint64_t instance_id) const {
+
+    leveldb::Status status =
+            log_meta_fp_->Put(leveldb::WriteOptions(),
+                              META_APPLY_INSTANCE_ID, Endian::uint64_to_net(instance_id));
+    if (!status.ok()) {
+        roo::log_err("Update Meta set %s = %lu failed.", META_APPLY_INSTANCE_ID, instance_id);
+        return -1;
+    }
     return 0;
 }
 

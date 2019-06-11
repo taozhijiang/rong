@@ -26,6 +26,8 @@
 #include <Paxos/Clock.h>
 #include <Paxos/MasterLease.h>
 #include <Paxos/LogIf.h>
+#include <Paxos/StoreIf.h>
+#include <Paxos/StateMachine.h>
 
 #include <Client/include/RpcClient.h>
 #include <Client/include/RpcClientStatus.h>
@@ -113,11 +115,8 @@ public:
         return context_->next_proposal_id(hint);
     }
 
-    void close_instance() {
-        context_->close_instance();
-    }
-
     bool startup_instance();
+    void close_instance();
     uint64_t instance_id() { return context_->instance_id(); }
 
     // 客户端的请求
@@ -125,6 +124,7 @@ public:
     int state_machine_select(const std::string& cmd, std::string& query_out);
 
     // 状态机的快照处理
+    int append_chosen(const std::string& val);
     int state_machine_snapshot();
 
     void consensus_notify() { consensus_notify_.notify_all(); }
@@ -157,6 +157,10 @@ public:
 
     // Paxos log & meta store
     std::unique_ptr<LogIf> log_meta_;
+
+    // 状态机处理模块，机器对应的LevelDB底层存储模块
+    std::unique_ptr<StateMachine> state_machine_;
+    std::unique_ptr<StoreIf> kv_store_;
 
     // 简化起见，本实现对于Paxos的Instance是严格的依次序列化执行的，即只有本处理的
     // Instance进行Accept、Learn之后才会正常关闭，然后再递增paxosID进行下一个Instance的处理

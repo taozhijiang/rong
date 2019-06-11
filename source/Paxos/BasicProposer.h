@@ -151,6 +151,9 @@ public:
                              "value size %lu.",
                              paxos_consensus_.instance_id(), state_.proposalID, state_.value.size());
 
+            // Store to LogIf
+            paxos_consensus_.append_chosen(state_.value);
+
             // Broadcast learn message to all nodes.
 
             // PaxosConsensus should close this instance.

@@ -14,6 +14,7 @@
 #include <Protocol/Common.h>
 
 #include <Paxos/LevelDBLog.h>
+#include <Paxos/LevelDBStore.h>
 #include <Paxos/Clock.h>
 #include <Paxos/PaxosConsensus.h>
 
@@ -121,6 +122,12 @@ bool PaxosConsensus::init() {
         return false;
     }
 
+    kv_store_ = make_unique<LevelDBStore>(option_.log_path_ + "/kv_store", option_.log_path_ + "/snapshot/");
+    if (!kv_store_) {
+        roo::log_err("Create LevelDBStore handle failed.");
+        return false;
+    }
+
     // 加载持久化的元信息，主要再崩溃恢复时候使用
     PaxosMetadata::Metadata meta;
     if (log_meta_->meta_data(&meta) != 0) {
@@ -128,19 +135,20 @@ bool PaxosConsensus::init() {
         return false;
     }
 
+    // 状态机执行线程
+    state_machine_ = make_unique<StateMachine>(*this, log_meta_, kv_store_);
+    if (!state_machine_ || !state_machine_->init()) {
+        roo::log_err("Create and initialize StateMachine failed.");
+        return false;
+    }
+
+
     context_ = std::make_shared<Context>(option_.id_, log_meta_);
     if (!context_ || !context_->init(meta)) {
         roo::log_err("PaxosConsensus init Context failed.");
         return false;
     }
 
-#if 0
-    kv_store_ = make_unique<LevelDBStore>(option_.log_path_ + "/kv_store", option_.log_path_ + "/snapshot/");
-    if (!kv_store_) {
-        roo::log_err("Create LevelDBStore handle failed.");
-        return false;
-    }
-#endif
 
 #if 0
     // 初始化MasterLease选主模块
@@ -270,8 +278,16 @@ bool PaxosConsensus::startup_instance() {
     acceptor_->state().init();
     proposer_->state().init();
     learner_->state().init();
+
+    roo::log_info("startup new instance_id %lu.", context_->instance_id());
     return true;
 }
+
+void PaxosConsensus::close_instance() {
+    context_->close_instance();
+    roo::log_info("close instance_id %lu.", context_->instance_id());
+}
+
 
 int PaxosConsensus::state_machine_update(const std::string& cmd, std::string& apply_out) {
 
@@ -286,15 +302,71 @@ int PaxosConsensus::state_machine_update(const std::string& cmd, std::string& ap
     proposer_->propose(cmd);
 
     // 等待发起的值被Chosen以及状态机执行
-    ::sleep(10);
+    while (state_machine_->apply_instance_id() < instance_id) {
+        client_notify_.wait(lock);
+    }
 
-    return -1;
+    // 获取状态机执行的缓存结果
+    Client::StateMachineUpdateOps::Response response;
+    response.set_code(0);
+    response.set_msg("OK");
+
+    std::string content;
+    if (state_machine_->fetch_response_msg(instance_id, content))
+        response.set_context(content);
+
+    roo::ProtoBuf::marshalling_to_string(response, &apply_out);
+
+    context_->close_instance();
+    return 0;
 }
 
+// 暂时的 stale 读
 int PaxosConsensus::state_machine_select(const std::string& cmd, std::string& query_out) {
-    return -1;
+
+    Client::StateMachineSelectOps::Request  request;
+    if (!roo::ProtoBuf::unmarshalling_from_string(cmd, &request)) {
+        roo::log_err("unmarshal request failed.");
+        return -1;
+    }
+
+    Client::StateMachineSelectOps::Response response;
+    int ret = kv_store_->select_handle(request, response);
+    if (ret != 0) {
+        roo::log_err("kv store do query failed with %d.", ret);
+        return ret;
+    }
+
+    response.set_code(0);
+    response.set_msg("OK");
+    roo::ProtoBuf::marshalling_to_string(response, &query_out);
+
+    return 0;
 }
 
+// 在调用该函数的时候，就会检查日志的完整性，如果当前日志的
+// last_index和instance_id不匹配，就会发起ChosenLearn的请求来学习日志
+int PaxosConsensus::append_chosen(const std::string& val) {
+
+    // TODO
+    if( instance_id() > log_meta_->last_index() + 1 ) {
+        return -1;
+    }
+
+    auto entry = std::make_shared<LogIf::Entry>();
+    if (!entry) {
+        roo::log_err("Create new entry failed.");
+        return -1;
+    }
+
+    entry->set_type(Paxos::EntryType::kNormal);
+    entry->set_data(val);
+
+    auto code = log_meta_->append(entry);
+    state_machine_->notify_state_machine();
+
+    return code;
+}
 
 void PaxosConsensus::main_thread_loop() {
 

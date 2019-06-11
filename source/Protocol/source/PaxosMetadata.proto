@@ -11,6 +11,8 @@ package rong.PaxosMetadata;
 // META_PROMISED_PROPOSAL_ID
 // META_ACCEPTED_PROPOSAL_ID
 // META_ACCEPTED_VALUE
+//
+// META_APPLY_INSTANCE_ID
 
 // used in program, not in store
 message Metadata { 
@@ -21,4 +23,6 @@ message Metadata {
     optional uint64 promised_proposal_id = 7;
     optional uint64 accepted_proposal_id = 8;
     optional bytes  accepted_value  = 9;
+    
+    optional uint64 apply_instance_id = 10;
 }
