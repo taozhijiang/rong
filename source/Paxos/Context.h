@@ -33,9 +33,10 @@ public:
 
     uint64_t next_proposal_id(uint64_t hint) const;
 
-    bool startup_instance();
+    bool startup_instance(uint64_t& curr_instance_id);
     void close_instance() { active_ = false; }
-    uint64_t instance_id() const { return instance_id_; }
+    uint64_t highest_instance_id() const { return highest_instance_id_; }
+    void update_highest_instance_id(uint64_t instance_id);
 
     std::string str() const;
 
@@ -47,8 +48,7 @@ public:
 private:
 
     // 全局的RoundID，需要持久化
-    // 被Acceptor、Learner共享使用
-    uint64_t instance_id_;
+    uint64_t highest_instance_id_;
 
     // 每次系统启动后自增，用于构造悠久唯一递增的Proposal
     uint64_t restart_counter_;

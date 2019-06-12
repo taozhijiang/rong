@@ -72,8 +72,7 @@ public:
         peer_set_() {
     }
 
-    ~PaxosConsensus() {
-    }
+    ~PaxosConsensus() = default;
 
     bool init();
 
@@ -82,16 +81,22 @@ public:
         std::string msg;
         roo::ProtoBuf::marshalling_to_string(request, &msg);
 
-        for (auto iter = peer_set_.begin(); iter != peer_set_.end(); ++iter)
-            iter->second->send_paxos_RPC(tzrpc::ServiceID::PAXOS_SERVICE, Paxos::OpCode::kPaxosLease, msg);
+        for (auto iter = peer_set_.begin(); iter != peer_set_.end(); ++iter) {
+            const auto peer = iter->second;
+            roo::log_info("Send kPaxosBasic to %s:%d.", peer->addr_.c_str(), peer->port_);
+            peer->send_paxos_RPC(tzrpc::ServiceID::PAXOS_SERVICE, Paxos::OpCode::kPaxosLease, msg);
+        }
     }
 
     void send_paxos_basic(const Paxos::BasicMessage& request) {
         std::string msg;
         roo::ProtoBuf::marshalling_to_string(request, &msg);
 
-        for (auto iter = peer_set_.begin(); iter != peer_set_.end(); ++iter)
-            iter->second->send_paxos_RPC(tzrpc::ServiceID::PAXOS_SERVICE, Paxos::OpCode::kPaxosBasic, msg);
+        for (auto iter = peer_set_.begin(); iter != peer_set_.end(); ++iter) {
+            const auto peer = iter->second;
+            roo::log_info("Send kPaxosBasic to %s:%d.", peer->addr_.c_str(), peer->port_);
+            peer->send_paxos_RPC(tzrpc::ServiceID::PAXOS_SERVICE, Paxos::OpCode::kPaxosBasic, msg);
+        }
     }
 
     // Paxos协议相关的RPC直接响应请求
@@ -99,7 +104,8 @@ public:
     int handle_paxos_basic_request(const Paxos::BasicMessage& request, Paxos::BasicMessage& response);
 
     // 对于向peer发送的rpc请求，其响应都会在这个函数中异步执行
-    int handle_rpc_callback(RpcClientStatus status, uint16_t service_id, uint16_t opcode, const std::string& rsp);
+    int handle_rpc_callback(RpcClientStatus status, uint16_t service_id, uint16_t opcode,
+                            const std::string& rsp);
     int handle_paxos_lease_response(Paxos::LeaseMessage response);
     int handle_paxos_basic_response(Paxos::BasicMessage response);
 
@@ -108,7 +114,8 @@ public:
     uint64_t current_leader() const;
     bool is_leader() const;
     size_t quorum_count() const {
-        return static_cast<size_t>(::floor((double)(peer_set_.size() + 1) / 2) + 1);
+        //return static_cast<size_t>(::floor((double)(peer_set_.size() + 1) / 2) + 1);
+        return static_cast<size_t>(((peer_set_.size() + 1) >> 1) + 1);
     }
 
     uint64_t next_proposal_id(uint64_t hint) const {
@@ -117,14 +124,15 @@ public:
 
     bool startup_instance();
     void close_instance();
-    uint64_t instance_id() { return context_->instance_id(); }
+    uint64_t current_instance_id() const;
+    uint64_t highest_instance_id() const;
 
     // 客户端的请求
     int state_machine_update(const std::string& cmd, std::string& apply_out);
     int state_machine_select(const std::string& cmd, std::string& query_out);
 
     // 状态机的快照处理
-    int append_chosen(const std::string& val);
+    int append_chosen(uint64_t index, const std::string& val);
     int state_machine_snapshot();
 
     void consensus_notify() { consensus_notify_.notify_all(); }

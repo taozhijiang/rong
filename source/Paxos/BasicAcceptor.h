@@ -43,12 +43,14 @@ public:
 
     void on_prepare_request(const Paxos::BasicMessage& request, Paxos::BasicMessage& response) {
 
-        roo::log_info("current state_.promised_proposal_id %lu, and request proposal_id: %lu",
-                      state_.promisedProposalID, request.proposal_id());
+        roo::log_info("Current local instance_id %lu, promised_proposal_id %lu, "
+                      "        request instance_id %lu, proposal_id: %lu.",
+                      paxos_consensus_.current_instance_id(), state_.promisedProposalID,
+                      request.instance_id(), request.proposal_id());
 
         response.set_node_id(paxos_consensus_.context_->kID);
         response.set_proposal_id(request.proposal_id());
-        response.set_instance_id(paxos_consensus_.instance_id());
+        response.set_instance_id(request.instance_id());
 
 
         if (request.proposal_id() < state_.promisedProposalID) {
@@ -68,16 +70,21 @@ public:
             response.set_accepted_proposal_id(state_.acceptedProposalID);
             response.set_value(state_.acceptedValue);
         }
+
+        // 状态持久化，然后再响应请求
+        persist_state();
     }
 
     void on_propose_request(const Paxos::BasicMessage& request, Paxos::BasicMessage& response) {
 
-        roo::log_info("current state_.promised_proposal_id %lu, and request proposal_id: %lu",
-                      state_.promisedProposalID, request.proposal_id());
+        roo::log_info("Current local instance_id %lu, promised_proposal_id %lu, "
+                      "        request instance_id %lu, proposal_id: %lu.",
+                      paxos_consensus_.current_instance_id(), state_.promisedProposalID,
+                      request.instance_id(), request.proposal_id());
 
         response.set_node_id(paxos_consensus_.context_->kID);
         response.set_proposal_id(request.proposal_id());
-        response.set_instance_id(paxos_consensus_.instance_id());
+        response.set_instance_id(request.instance_id());
 
         if (request.proposal_id() < state_.promisedProposalID) {
             response.set_type(Paxos::kBProposeRejected);
@@ -89,6 +96,9 @@ public:
         state_.acceptedValue = request.value();
 
         response.set_type(Paxos::kBProposeAccepted);
+
+        // 状态持久化，然后再响应请求
+        persist_state();
     }
 
 
@@ -97,6 +107,18 @@ public:
     }
 
 private:
+
+    void persist_state() {
+
+        MetaDataType meta {};
+        meta.set_instance_id(paxos_consensus_.current_instance_id());
+        meta.set_accepted(state_.accepted);
+        meta.set_promised_proposal_id(state_.promisedProposalID);
+        meta.set_accepted_proposal_id(state_.acceptedProposalID);
+        meta.set_accepted_value(state_.acceptedValue);
+
+        paxos_consensus_.log_meta_->set_meta_data(meta);
+    }
 
     BasicAcceptorState state_;
     PaxosConsensus& paxos_consensus_;

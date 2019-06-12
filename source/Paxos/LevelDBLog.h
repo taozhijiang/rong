@@ -25,7 +25,7 @@ public:
     virtual ~LevelDBLog();
 
 
-    uint64_t append(const EntryPtr& newEntry)override;
+    uint64_t append(uint64_t index, const EntryPtr& newEntry)override;
 
     EntryPtr entry(uint64_t index) const override;
     bool     entries(uint64_t start, std::vector<EntryPtr>& entries, uint64_t limit) const override;
@@ -48,6 +48,9 @@ public:
 
     uint64_t meta_apply_instance_id() const override;
     int set_meta_apply_instance_id(uint64_t instance_id) const override;
+
+    uint64_t meta_highest_instance_id() const override;
+    int set_meta_highest_instance_id(uint64_t instance_id) const override;
 
 protected:
 

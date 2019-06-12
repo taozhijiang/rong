@@ -57,7 +57,7 @@ public:
         message.set_type(Paxos::BasicMessageType::kBPrepareRequest);
         message.set_node_id(paxos_consensus_.context_->kID);
         message.set_proposal_id(state_.proposalID);
-        message.set_instance_id(paxos_consensus_.instance_id());
+        message.set_instance_id(state_.instanceID);
 
         granted_.clear();
         rejected_.clear();
@@ -76,7 +76,7 @@ public:
         message.set_type(Paxos::BasicMessageType::kBProposeRequest);
         message.set_node_id(paxos_consensus_.context_->kID);
         message.set_proposal_id(state_.proposalID);
-        message.set_instance_id(paxos_consensus_.instance_id());
+        message.set_instance_id(state_.instanceID);
         message.set_value(state_.value);
 
         granted_.clear();
@@ -88,21 +88,34 @@ public:
 
     void on_prepare_response(const Paxos::BasicMessage& response) {
 
-        if (!state_.preparing || response.proposal_id() != state_.proposalID) {
-            roo::log_err("Invalid state detected, preparing %d, expected proposalID %lu get %lu",
-                         state_.preparing, state_.proposalID, response.proposal_id());
+        // 比如3节点，已经得到两个节点的响应了，那么就可以提前进入Proposing，剩余的应答可以忽略
+        if (!state_.preparing) {
             return;
         }
 
-        if (response.type() == Paxos::kBPrepareRejected) {
+        if (response.instance_id() != state_.instanceID) {
+            roo::log_err("PrepareResponse instance_id does not match, expect %lu get %lu.",
+                         state_.instanceID, response.instance_id());
+            return;
+        }
+
+        if (response.proposal_id() != state_.proposalID) {
+            roo::log_err("PrepareResponse proposal_id does not match, expected %lu get %lu.",
+                         state_.proposalID, response.proposal_id());
+            return;
+        }
+
+        if (response.type() == Paxos::kBPrepareRejected)
+        {
             if (response.promised_proposal_id() > state_.highestPromisedProposalID) {
-                roo::log_info("Rejected with new highestPromisedProposalID %lu.",
+                roo::log_warning("Rejected with new highestPromisedProposalID %lu.",
                               response.promised_proposal_id());
                 state_.highestPromisedProposalID = response.promised_proposal_id();
                 rejected_.insert(response.node_id());
             }
         } else if (response.type() == Paxos::kBPreparePreviouslyAccepted &&
-                   response.accepted_proposal_id() >= state_.highestReceivedProposalID) {
+                   response.accepted_proposal_id() >= state_.highestReceivedProposalID)
+        {
             /* the >= could be replaced by > which would result in less copys
              * however this would result in complications in multi paxos
              * in the multi paxos steady state this branch is inactive
@@ -121,11 +134,15 @@ public:
         }
 
         if (granted_.size() >= paxos_consensus_.quorum_count()) {
+            roo::log_warning("prepare success with granted size %lu, proposalID %lu.",
+                             granted_.size(), state_.proposalID);
             start_proposing();
             return;
         }
 
         if (rejected_.size() >= paxos_consensus_.quorum_count()) {
+            roo::log_warning("prepare failed with rejected size %lu, proposalID %lu.",
+                             rejected_.size(), state_.proposalID);
             start_preparing();
             return;
         }
@@ -134,6 +151,61 @@ public:
 
     void on_propose_response(const Paxos::BasicMessage& response) {
 
+        // 可能提前完成了Proposing，然后又转为了Preparing了，这里不做校验了
+        if (!state_.proposing) {
+            return;
+        }
+
+        if (response.instance_id() != state_.instanceID) {
+            roo::log_err("ProposeResponse instance_id does not match, expect %lu get %lu.",
+                         state_.instanceID, response.instance_id());
+            return;
+        }
+
+        if (response.proposal_id() != state_.proposalID) {
+            roo::log_err("ProposeResponse proposal_id does not match, expected %lu get %lu.",
+                         state_.proposalID, response.proposal_id());
+            return;
+        }
+
+        if (response.type() == Paxos::kBProposeAccepted) {
+            granted_.insert(response.node_id());
+        } else if (response.type() == Paxos::kBProposeRejected) {
+            rejected_.insert(response.node_id());
+        }
+
+        if (granted_.size() >= paxos_consensus_.quorum_count()) {
+            roo::log_warning("good for value chosen at instance_id %lu, proposal_id %lu, "
+                             "value size %lu.",
+                             state_.instanceID, state_.proposalID, state_.value.size());
+
+            // Store to LogIf
+            paxos_consensus_.append_chosen(state_.instanceID, state_.value);
+
+            // Broadcast learn message to all nodes.
+            Paxos::BasicMessage message;
+            message.set_type(Paxos::BasicMessageType::kBProposeLearnValue);
+            message.set_node_id(paxos_consensus_.context_->kID);
+            message.set_proposal_id(state_.proposalID);
+            message.set_instance_id(state_.instanceID);
+
+            paxos_consensus_.send_paxos_basic(message);
+
+            // PaxosConsensus should close this instance outside.
+            return;
+        }
+
+        if (rejected_.size() >= paxos_consensus_.quorum_count()) {
+            roo::log_warning("propose failed with rejected size %lu, proposalID %lu.",
+                             rejected_.size(), state_.proposalID);
+            start_preparing();
+            return;
+        }
+    }
+
+    // TODO
+    void on_learn_response(const Paxos::BasicMessage& response) {
+#if 0
         if (!state_.proposing || response.proposal_id() != state_.proposalID) {
             roo::log_err("Invalid state detected, proposing %d, expected proposalID %lu get %lu",
                          state_.proposing, state_.proposalID, response.proposal_id());
@@ -155,8 +227,15 @@ public:
             paxos_consensus_.append_chosen(state_.value);
 
             // Broadcast learn message to all nodes.
+            Paxos::BasicMessage message;
+            message.set_type(Paxos::BasicMessageType::kBProposeLearnProposal);
+            message.set_node_id(paxos_consensus_.context_->kID);
+            message.set_proposal_id(state_.proposalID);
+            message.set_instance_id(paxos_consensus_.instance_id());
 
-            // PaxosConsensus should close this instance.
+            paxos_consensus_.send_paxos_basic(message);
+
+            // PaxosConsensus should close this instance outside.
             return;
         }
 
@@ -164,6 +243,7 @@ public:
             start_preparing();
             return;
         }
+#endif
     }
 
     BasicProposerState& state() {

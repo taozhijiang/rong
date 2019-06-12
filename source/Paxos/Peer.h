@@ -36,7 +36,7 @@ public:
     std::string str() const {
 
         std::stringstream ss;
-        ss  << "Peer Info: " << std::endl
+        ss  << "Paxos Peer Info: " << std::endl
             << "    id: " << id_ << std::endl
             << "    addr port: " << addr_ << " " << port_ << std::endl;
 
@@ -45,16 +45,17 @@ public:
 
 public:
 
-    uint64_t id() const { return id_; }
-
-private:
     const uint64_t id_;
 
+    // Endpoint信息
     const std::string addr_;
-    uint16_t port_;
+    const uint16_t port_;
+
+private:
+
     rpc_handler_t handler_;
 
-    // Paxos(Basic,Lease)协议使用的RPC
+    // Paxos(包括Basic,Lease)协议使用的RPC
     std::unique_ptr<RpcClient> rpc_client_;
 
     // 客户端请求的RPC转发(到Leader)

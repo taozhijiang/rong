@@ -57,16 +57,19 @@ enum BasicMessageType {
     kBPrepareRequest        = 1;
     kBPrepareRejected       = 2;
     kBPreparePreviouslyAccepted = 3;
-    kBPrepareCurrentlyOpen  = 4;
+    kBPrepareCurrentlyOpen  = 4;    // 之前没有收到accpet，可以让Proposer指定
 
     kBProposeRequest        = 5;
     kBProposeRejected       = 6;
     kBProposeAccepted       = 7;
 
-    kBProposeLearnProposal  = 8;
-    kBProposeLearnValue     = 9;
-    kBProposeRequestChosen  = 10;
-    kBProposeStartCatchup   = 11;
+    // 当value被chosen之后，proposer (kBProposeLearnValue) -> learner
+    //     如果learner学习成功，则返回kBProposeRequestChosen并使instance_id为原先值
+    //     否则instance_id就是需要learner返回的
+    //
+    kBProposeLearnValue     = 8;    // 发送具体的value
+    kBProposeRequestChosen  = 9;    // 对于缺少的value，可以通过该值进行学习
+    kBProposeStartCatchup   = 10;   // 快照
 };
 
 

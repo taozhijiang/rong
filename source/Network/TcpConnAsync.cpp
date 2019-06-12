@@ -43,7 +43,7 @@ TcpConnAsync::TcpConnAsync(std::shared_ptr<boost::asio::ip::tcp::socket> socket,
 TcpConnAsync::~TcpConnAsync() {
 
     -- current_concurrency_;
-    roo::log_info("TcpConnAsync SOCKET RELEASED!!!");
+//    roo::log_info("TcpConnAsync SOCKET RELEASED!!!");
 }
 
 void TcpConnAsync::start() {
@@ -86,7 +86,8 @@ int TcpConnAsync::parse_header() {
     if (server_.recv_max_msg_size() != 0 &&
         recv_bound_.header_.length > static_cast<uint32_t>(server_.recv_max_msg_size())) {
         roo::log_err("Limit recv_max_msg_size length to %d, but need to recv content length %d.",
-                     static_cast<int>(server_.recv_max_msg_size()), static_cast<int>(recv_bound_.header_.length));
+                     static_cast<int>(server_.recv_max_msg_size()),
+                     static_cast<int>(recv_bound_.header_.length));
         return -1;
     }
 
@@ -177,7 +178,8 @@ int TcpConnAsync::parse_msg_body(Message& msg) {
     // need to read again!
     if (recv_bound_.buffer_.get_length() < recv_bound_.header_.length) {
         roo::log_info("Expect recv at least body length: %d, but only get %d. do_read again...",
-                      static_cast<int>(recv_bound_.header_.length), static_cast<int>(recv_bound_.buffer_.get_length()));
+                      static_cast<int>(recv_bound_.header_.length),
+                      static_cast<int>(recv_bound_.buffer_.get_length()));
         return 1;
     }
 
@@ -223,8 +225,8 @@ void TcpConnAsync::do_read_msg() {
         if (ret == 0) {
 
             // 转发到RPC请求
-            roo::log_info("read_message: %s", msg.dump().c_str());
-            roo::log_info("read message finished, dispatch for RPC process.");
+            // roo::log_info("read_message: %s", msg.dump().c_str());
+            // roo::log_info("read message finished, dispatch for RPC process.");
             auto instance = std::make_shared<RpcInstance>(msg.payload_, shared_from_this(), msg.payload_.size());
             Dispatcher::instance().handle_RPC(instance);
 

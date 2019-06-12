@@ -20,10 +20,11 @@ struct BasicProposerState {
     }
 
     void init() {
-        preparing =    false;
-        proposing =    false;
-        proposalID = 0;
-        highestReceivedProposalID =    0;
+        preparing   = false;
+        proposing   = false;
+        instanceID  = 0;
+        proposalID  = 0;
+        highestReceivedProposalID = 0;
         highestPromisedProposalID = 0;
         value.clear();
         leader = false;
@@ -33,6 +34,7 @@ struct BasicProposerState {
     // member
     bool        preparing;
     bool        proposing;
+    uint64_t    instanceID;      // 当前实例的标识号
     uint64_t    proposalID;
     uint64_t    highestReceivedProposalID;
     uint64_t    highestPromisedProposalID;
@@ -57,6 +59,7 @@ struct BasicAcceptorState {
     std::string acceptedValue;
 };
 
+// not used
 struct BasicLearnerState {
 
     void init() {

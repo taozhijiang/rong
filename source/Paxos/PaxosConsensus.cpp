@@ -163,7 +163,7 @@ bool PaxosConsensus::init() {
 
     proposer_.reset(new BasicProposer(*this));
     acceptor_.reset(new BasicAcceptor(*this, meta));
-    learner_.reset(new BasicLearner(*this));
+    learner_.reset(new BasicLearner(*this, log_meta_));
 
     // 主工作线程
     main_thread_ = std::thread(std::bind(&PaxosConsensus::main_thread_loop, this));
@@ -189,11 +189,19 @@ int PaxosConsensus::handle_paxos_lease_request(const Paxos::LeaseMessage& reques
 
 int PaxosConsensus::handle_paxos_basic_request(const Paxos::BasicMessage& request, Paxos::BasicMessage& response) {
 
+    // 更新全局的最新instance_id
+    if (request.has_instance_id() && context_->highest_instance_id() < request.instance_id()) {
+        context_->update_highest_instance_id(request.instance_id());
+    }
+
     if (request.type() == Paxos::kBPrepareRequest) {
         acceptor_->on_prepare_request(request, response);
         return 0;
     } else if (request.type() == Paxos::kBProposeRequest) {
         acceptor_->on_propose_request(request, response);
+        return 0;
+    } else if (request.type() == Paxos::kBProposeLearnValue) {
+        learner_->on_learn_request(request, response);
         return 0;
     }
 
@@ -203,6 +211,7 @@ int PaxosConsensus::handle_paxos_basic_request(const Paxos::BasicMessage& reques
 
 int PaxosConsensus::handle_paxos_lease_response(Paxos::LeaseMessage response) {
 
+    roo::log_err("NOT IMPLEMENTED...");
     return -1;
 }
 
@@ -218,8 +227,12 @@ int PaxosConsensus::handle_paxos_basic_response(Paxos::BasicMessage response) {
                response.type() == Paxos::kBProposeAccepted) {
         proposer_->on_propose_response(response);
         return 0;
+    } else if (response.type() == Paxos::kBProposeRequestChosen ||
+               response.type() == Paxos::kBProposeStartCatchup ) {
+        proposer_->on_learn_response(response);
     }
 
+    roo::log_err("Unhandle paxos_basic response type found: %d", static_cast<int>(response.type()));
     return -1;
 }
 
@@ -272,31 +285,43 @@ bool PaxosConsensus::is_leader() const {
 }
 
 bool PaxosConsensus::startup_instance() {
-    if (!context_->startup_instance())
+
+    uint64_t current_instance_id = 0;
+    if (!context_->startup_instance(current_instance_id))
         return false;
 
     acceptor_->state().init();
     proposer_->state().init();
     learner_->state().init();
 
-    roo::log_info("startup new instance_id %lu.", context_->instance_id());
+    proposer_->state().instanceID = current_instance_id;
+
+    roo::log_info("startup new instance_id %lu.", current_instance_id);
     return true;
 }
 
 void PaxosConsensus::close_instance() {
     context_->close_instance();
-    roo::log_info("close instance_id %lu.", context_->instance_id());
+    roo::log_info("close instance_id %lu.", proposer_->state().instanceID);
+}
+
+uint64_t PaxosConsensus::current_instance_id() const {
+    return proposer_->state().instanceID;
+}
+
+uint64_t PaxosConsensus::highest_instance_id() const {
+    return context_->highest_instance_id();
 }
 
 
 int PaxosConsensus::state_machine_update(const std::string& cmd, std::string& apply_out) {
 
     std::unique_lock<std::mutex> lock(client_mutex_);
-    while (!context_->startup_instance()) {
-        client_notify_.wait(lock);
-    }
 
-    auto instance_id = context_->instance_id();
+    while (!startup_instance())
+        client_notify_.wait(lock);
+
+    uint64_t instance_id = proposer_->state().instanceID;
 
     // 发起propose
     proposer_->propose(cmd);
@@ -346,12 +371,20 @@ int PaxosConsensus::state_machine_select(const std::string& cmd, std::string& qu
 
 // 在调用该函数的时候，就会检查日志的完整性，如果当前日志的
 // last_index和instance_id不匹配，就会发起ChosenLearn的请求来学习日志
-int PaxosConsensus::append_chosen(const std::string& val) {
+int PaxosConsensus::append_chosen(uint64_t index, const std::string& val) {
 
-    // TODO
-    if( instance_id() > log_meta_->last_index() + 1 ) {
-        return -1;
+    // 日志已经存在
+    if( index < log_meta_->last_index() + 1 )
+        return 0;
+
+    {
+        // 等待，填补提交日志的空隙
+        std::unique_lock<std::mutex> lock(consensus_mutex_);
+        while (index > log_meta_->last_index() + 1)
+            consensus_notify_.wait(lock);
     }
+
+    assert(index <= log_meta_->last_index() + 1);
 
     auto entry = std::make_shared<LogIf::Entry>();
     if (!entry) {
@@ -362,7 +395,7 @@ int PaxosConsensus::append_chosen(const std::string& val) {
     entry->set_type(Paxos::EntryType::kNormal);
     entry->set_data(val);
 
-    auto code = log_meta_->append(entry);
+    auto code = log_meta_->append(index, entry);
     state_machine_->notify_state_machine();
 
     return code;

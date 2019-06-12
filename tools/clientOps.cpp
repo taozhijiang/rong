@@ -57,7 +57,7 @@ int main(int argc, char* argv[]) {
                                       rong::Client::OpCode::kSelect,
                                       mar_str, resp_str);
         if (status != RpcClientStatus::OK) {
-            std::cerr << "call failed, return code [" << static_cast<uint8_t>(status) << "]" << std::endl;
+            std::cerr << "call failed, return code [" << static_cast<int>(status) << "]" << std::endl;
             return -1;
         }
 
@@ -96,7 +96,7 @@ int main(int argc, char* argv[]) {
                                       rong::Client::OpCode::kUpdate,
                                       mar_str, resp_str);
         if (status != RpcClientStatus::OK) {
-            std::cerr << "call failed, return code [" << static_cast<uint8_t>(status) << "]" << std::endl;
+            std::cerr << "call failed, return code [" << static_cast<int>(status) << "]" << std::endl;
             return -1;
         }
 
@@ -133,7 +133,7 @@ int main(int argc, char* argv[]) {
                                       rong::Client::OpCode::kUpdate,
                                       mar_str, resp_str);
         if (status != RpcClientStatus::OK) {
-            std::cerr << "call failed, return code [" << static_cast<uint8_t>(status) << "]" << std::endl;
+            std::cerr << "call failed, return code [" << static_cast<int>(status) << "]" << std::endl;
             return -1;
         }
 
@@ -165,7 +165,7 @@ int main(int argc, char* argv[]) {
                                       rong::Client::OpCode::kSelect,
                                       mar_str, resp_str);
         if (status != RpcClientStatus::OK) {
-            std::cerr << "call failed, return code [" << static_cast<uint8_t>(status) << "]" << std::endl;
+            std::cerr << "call failed, return code [" << static_cast<int>(status) << "]" << std::endl;
             return -1;
         }
 

@@ -32,6 +32,8 @@ Peer::Peer(uint64_t id,
     setting.serv_addr_ = addr_;
     setting.serv_port_ = port_;
     setting.io_service_ = Captain::instance().io_service_ptr_->io_service_ptr();
+
+    // default sync call use
     rpc_proxy_  = make_unique<RpcClient>(setting);
 
     // add handler_ for async call use
@@ -43,15 +45,29 @@ Peer::Peer(uint64_t id,
 }
 
 int Peer::send_paxos_RPC(uint16_t service_id, uint16_t opcode, const std::string& payload) const {
+
     RpcClientStatus status = rpc_client_->call_RPC(service_id, opcode, payload);
-    return status == RpcClientStatus::OK ? 0 : -1;
+    if (status != RpcClientStatus::OK) {
+        roo::log_err("send_paxos_RPC for %s:%u return %d.",
+                     addr_.c_str(), port_, static_cast<int>(status));
+        return -1;
+    }
+
+    return 0;
 }
 
 
 int Peer::proxy_client_RPC(uint16_t service_id, uint16_t opcode,
                            const std::string& payload, std::string& respload) const {
+
     RpcClientStatus status = rpc_proxy_->call_RPC(service_id, opcode, payload, respload);
-    return status == RpcClientStatus::OK ? 0 : -1;
+    if (status != RpcClientStatus::OK) {
+        roo::log_err("proxy_client_RPC for %s:%u return %d.",
+                     addr_.c_str(), port_, static_cast<int>(status));
+        return -1;
+    }
+
+    return 0;
 }
 
 std::ostream& operator<<(std::ostream& os, const Peer& peer) {

@@ -5,6 +5,7 @@ package rong.PaxosMetadata;
 // Reserved PaxosLogMeta Keys:
 //
 // META_RESTART_COUNTER
+// META_HIGHEST_INSTANCE_ID
 //
 // META_INSTANCE_ID
 // META_ACCEPTED
@@ -16,9 +17,10 @@ package rong.PaxosMetadata;
 
 // used in program, not in store
 message Metadata { 
-    optional uint64 restart_counter = 1; // 重启后的计数，只要用于构造ProposalID
+    optional uint64 restart_counter = 1;        // 重启后的计数，只要用于构造proposalID
+    optional uint64 highest_instance_id = 2;    // 重启后用于构造Context中的highestInstanceID
     
-    optional uint64 instance_id     = 5; // instance_id，连续的日志索引
+    optional uint64 instance_id     = 5;        // 当前Round的instanceID
     optional bool   accepted        = 6;
     optional uint64 promised_proposal_id = 7;
     optional uint64 accepted_proposal_id = 8;

@@ -18,15 +18,16 @@
 
 namespace rong {
 
-const char* const META_RESTART_COUNTER = "META_RESTART_COUNTER";
+const char* const META_RESTART_COUNTER      = "META_RESTART_COUNTER";
+const char* const META_HIGHEST_INSTANCE_ID  = "META_HIGHEST_INSTANCE_ID";
 
-const char* const META_INSTANCE_ID = "META_INSTANCE_ID";
-const char* const META_ACCEPTED = "META_ACCEPTED";
+const char* const META_INSTANCE_ID          = "META_INSTANCE_ID";
+const char* const META_ACCEPTED             = "META_ACCEPTED";
 const char* const META_PROMISED_PROPOSAL_ID = "META_PROMISED_PROPOSAL_ID";
 const char* const META_ACCEPTED_PROPOSAL_ID = "META_ACCEPTED_PROPOSAL_ID";
-const char* const META_ACCEPTED_VALUE = "META_ACCEPTED_VALUE";
+const char* const META_ACCEPTED_VALUE       = "META_ACCEPTED_VALUE";
 
-const char* const META_APPLY_INSTANCE_ID = "META_APPLY_INSTANCE_ID";
+const char* const META_APPLY_INSTANCE_ID    = "META_APPLY_INSTANCE_ID";
 
 using roo::Endian;
 
@@ -89,9 +90,17 @@ LevelDBLog::~LevelDBLog() {
     log_meta_fp_.reset();
 }
 
-uint64_t LevelDBLog::append(const EntryPtr& newEntry) {
+uint64_t LevelDBLog::append(uint64_t index, const EntryPtr& newEntry) {
 
     std::lock_guard<std::mutex> lock(log_mutex_);
+
+    // GAP ...
+    if (index != last_index_ + 1) {
+        roo::log_info("fast return with index %lu, last_index %lu.", index, last_index_);
+        return last_index_;
+    }
+
+    // index == last_index_ + 1
 
     std::string buf;
     newEntry->SerializeToString(&buf);
@@ -210,6 +219,10 @@ int LevelDBLog::meta_data(LogMeta* meta_data) const {
     if (status.ok())
         meta_data->set_restart_counter(Endian::uint64_from_net(val));
 
+    status = log_meta_fp_->Get(leveldb::ReadOptions(), META_HIGHEST_INSTANCE_ID, &val);
+    if (status.ok())
+        meta_data->set_highest_instance_id(Endian::uint64_from_net(val));
+
     status = log_meta_fp_->Get(leveldb::ReadOptions(), META_INSTANCE_ID, &val);
     if (status.ok())
         meta_data->set_instance_id(Endian::uint64_from_net(val));
@@ -236,7 +249,8 @@ int LevelDBLog::meta_data(LogMeta* meta_data) const {
 
 int LevelDBLog::set_meta_data(const LogMeta& meta) const {
 
-    if (!meta.has_restart_counter() && !meta.has_instance_id() &&
+    if (!meta.has_restart_counter() && !meta.has_highest_instance_id() &&
+        !meta.has_instance_id() &&
         !meta.has_accepted() && !meta.has_promised_proposal_id() &&
         !meta.has_accepted_proposal_id() && !meta.has_accepted_value())
         return -1;
@@ -244,6 +258,8 @@ int LevelDBLog::set_meta_data(const LogMeta& meta) const {
     leveldb::WriteBatch batch;
     if (meta.has_restart_counter())
         batch.Put(META_RESTART_COUNTER, Endian::uint64_to_net(meta.restart_counter()));
+    if (meta.has_highest_instance_id())
+        batch.Put(META_HIGHEST_INSTANCE_ID, Endian::uint64_to_net(meta.highest_instance_id()));
     if (meta.has_instance_id())
         batch.Put(META_INSTANCE_ID, Endian::uint64_to_net(meta.instance_id()));
     if (meta.has_accepted())
@@ -258,8 +274,9 @@ int LevelDBLog::set_meta_data(const LogMeta& meta) const {
     leveldb::Status status = log_meta_fp_->Write(leveldb::WriteOptions(), &batch);
     if (!status.ok()) {
         roo::log_err("Update Meta data failed.");
-        roo::log_err("info: %s %lu, %s %lu, %s %lu, %s %lu, %s %lu, %s %s.",
+        roo::log_err("info: %s %lu, %s %lu, %s %lu, %s %lu, %s %lu, %s %lu, %s %s.",
                      META_RESTART_COUNTER, meta.restart_counter(),
+                     META_HIGHEST_INSTANCE_ID, meta.highest_instance_id(),
                      META_INSTANCE_ID, meta.instance_id(), META_ACCEPTED, meta.accepted() ? 1UL : 0UL,
                      META_PROMISED_PROPOSAL_ID, meta.promised_proposal_id(),
                      META_ACCEPTED_PROPOSAL_ID, meta.accepted_proposal_id(),
@@ -293,5 +310,27 @@ int LevelDBLog::set_meta_apply_instance_id(uint64_t instance_id) const {
     return 0;
 }
 
+uint64_t LevelDBLog::meta_highest_instance_id() const {
+
+    std::string val;
+    leveldb::Status status
+            = log_meta_fp_->Get(leveldb::ReadOptions(), META_HIGHEST_INSTANCE_ID, &val);
+    if (status.ok())
+        return Endian::uint64_from_net(val);
+
+    return 0;
+}
+
+int LevelDBLog::set_meta_highest_instance_id(uint64_t instance_id) const {
+
+    leveldb::Status status =
+            log_meta_fp_->Put(leveldb::WriteOptions(),
+                              META_HIGHEST_INSTANCE_ID, Endian::uint64_to_net(instance_id));
+    if (!status.ok()) {
+        roo::log_err("Update Meta set %s = %lu failed.", META_HIGHEST_INSTANCE_ID, instance_id);
+        return -1;
+    }
+    return 0;
+}
 
 } // namespace rong

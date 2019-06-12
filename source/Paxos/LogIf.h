@@ -24,6 +24,7 @@ namespace rong {
 
 
 extern const char* const META_RESTART_COUNTER;
+extern const char* const META_HIGHEST_INSTANCE_ID;
 
 extern const char* const META_INSTANCE_ID;
 extern const char* const META_ACCEPTED;
@@ -48,7 +49,7 @@ public:
 
     // 这里不是严格意义上的追加，而是应该再accept成功之后再添加指定instance_id索引位置的日志
     // 如果成功则返回值和传递的paxosId是一致的，否则就返回last_index
-    virtual uint64_t append(const EntryPtr& newEntry) = 0;
+    virtual uint64_t append(uint64_t index, const EntryPtr& newEntry) = 0;
 
     virtual EntryPtr entry(uint64_t index) const = 0;
     virtual bool     entries(uint64_t start, std::vector<EntryPtr>& entries, uint64_t limit = 0) const = 0;
@@ -65,6 +66,9 @@ public:
 
     virtual uint64_t meta_apply_instance_id() const = 0;
     virtual int set_meta_apply_instance_id(uint64_t instance_id) const = 0;
+
+    virtual uint64_t meta_highest_instance_id() const = 0;
+    virtual int set_meta_highest_instance_id(uint64_t instance_id) const = 0;
 };
 
 

@@ -17,34 +17,48 @@ namespace rong {
 Context::Context(uint64_t id, std::unique_ptr<LogIf>& log_meta) :
     kID(id),
     log_meta_(log_meta),
-    instance_id_(0),
+    highest_instance_id_(0),
     restart_counter_(0),
     active_(false) {
 }
 
 bool Context::init(const MetaDataType& meta) {
 
-    if (meta.has_instance_id())
-        instance_id_ = meta.instance_id();
+    if (meta.has_highest_instance_id())
+        highest_instance_id_ = meta.highest_instance_id();
     if (meta.has_restart_counter())
         restart_counter_ = meta.restart_counter();
+
+    if (meta.has_instance_id() && highest_instance_id_ < meta.instance_id()) {
+        highest_instance_id_ = meta.instance_id();
+    }
 
     roo::log_info("Full Context info: \n%s", this->str().c_str());
 
     MetaDataType n_meta;
     n_meta.set_restart_counter(restart_counter_ + 1);
+    n_meta.set_highest_instance_id(highest_instance_id_);
     log_meta_->set_meta_data(n_meta);
 
     return true;
 }
 
-bool Context::startup_instance() {
+bool Context::startup_instance(uint64_t& curr_instance_id) {
     if (active_)
         return false;
 
-    ++instance_id_;
     active_ = true;
+    curr_instance_id = ++ highest_instance_id_;
+
+    log_meta_->set_meta_highest_instance_id(curr_instance_id);
     return true;
+}
+
+void Context::update_highest_instance_id(uint64_t instance_id) {
+    if (instance_id > highest_instance_id_) {
+        highest_instance_id_ = instance_id;
+        log_meta_->set_meta_highest_instance_id(instance_id);
+    }
 }
 
 // ProposeID需要保证全区唯一，而且是单调递增的，设计方法为
@@ -73,7 +87,7 @@ std::string Context::str() const {
     std::stringstream ss;
 
     ss  << "   server_id: " << kID << std::endl
-        << "   instance_id: " << instance_id_ << std::endl
+        << "   highest_instance_id: " << highest_instance_id_ << std::endl
         << "   restart_counter: " << restart_counter_ << std::endl
     ;
 
