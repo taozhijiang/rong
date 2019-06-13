@@ -69,7 +69,7 @@ public:
         option_(),
         context_(),
 //        master_lease_(*this),
-        peer_set_() {
+        cluster_set_() {
     }
 
     ~PaxosConsensus() = default;
@@ -81,7 +81,7 @@ public:
         std::string msg;
         roo::ProtoBuf::marshalling_to_string(request, &msg);
 
-        for (auto iter = peer_set_.begin(); iter != peer_set_.end(); ++iter) {
+        for (auto iter = cluster_set_.begin(); iter != cluster_set_.end(); ++iter) {
             const auto peer = iter->second;
             roo::log_info("Send kPaxosBasic to %s:%d.", peer->addr_.c_str(), peer->port_);
             peer->send_paxos_RPC(tzrpc::ServiceID::PAXOS_SERVICE, Paxos::OpCode::kPaxosLease, msg);
@@ -92,7 +92,7 @@ public:
         std::string msg;
         roo::ProtoBuf::marshalling_to_string(request, &msg);
 
-        for (auto iter = peer_set_.begin(); iter != peer_set_.end(); ++iter) {
+        for (auto iter = cluster_set_.begin(); iter != cluster_set_.end(); ++iter) {
             const auto peer = iter->second;
             roo::log_info("Send kPaxosBasic to %s:%d.", peer->addr_.c_str(), peer->port_);
             peer->send_paxos_RPC(tzrpc::ServiceID::PAXOS_SERVICE, Paxos::OpCode::kPaxosBasic, msg);
@@ -114,8 +114,9 @@ public:
     uint64_t current_leader() const;
     bool is_leader() const;
     size_t quorum_count() const {
-        //return static_cast<size_t>(::floor((double)(peer_set_.size() + 1) / 2) + 1);
-        return static_cast<size_t>(((peer_set_.size() + 1) >> 1) + 1);
+        // return static_cast<size_t>(::floor((double)(peer_set_.size() + 1) / 2) + 1);
+        // cluster_set_ include ourself
+        return static_cast<size_t>(((cluster_set_.size()) >> 1) + 1);
     }
 
     uint64_t next_proposal_id(uint64_t hint) const {
@@ -137,6 +138,7 @@ public:
 
     void consensus_notify() { consensus_notify_.notify_all(); }
     void client_notify() { client_notify_.notify_all(); }
+    void state_machine_notify() { state_machine_->notify_state_machine(); }
 
 
 public:
@@ -161,7 +163,7 @@ public:
     // MasterLease master_lease_;
 
     // current static conf, not protected
-    std::map<uint64_t, std::shared_ptr<Peer>> peer_set_;
+    std::map<uint64_t, std::shared_ptr<Peer>> cluster_set_;
 
     // Paxos log & meta store
     std::unique_ptr<LogIf> log_meta_;

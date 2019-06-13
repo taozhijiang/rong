@@ -29,38 +29,53 @@ public:
     }
 
     void on_learn_request(const Paxos::BasicMessage& request, Paxos::BasicMessage& response) {
-#if 0
-        roo::log_info("current request proposal_id: %lu", request.proposal_id());
+
+        roo::log_info("Current local last_index %lu, request.instance_id %lu.",
+                      log_meta_->last_index(), request.instance_id());
 
         response.set_type(Paxos::kBProposeRequestChosen);
         response.set_node_id(paxos_consensus_.context_->kID);
         response.set_proposal_id(request.proposal_id());
-        response.set_instance_id(request.instance_id());
 
-        // 发送的日志比本地日志多，则不处理
-        if (request.instance_id() <= paxos_consensus_.instance_id()) {
-            return;
-        }
+        do {
 
-        // 发送的日志和本地日志刚好匹配，追加返回
-        if (request.instance_id() > paxos_consensus_.instance_id() + 1) {
+            // 跳过，无需添加
+            if (request.instance_id() <= log_meta_->last_index())
+                break;
 
-        }
+            if (request.instance_id() > log_meta_->last_index() + 1) {
+                roo::log_err("LearnLog Gap found, reject with %lu.", log_meta_->last_index());
+                break;
+            }
 
-        // 发送的日志比本地日志多，中间有日志间隙，删除之
-        response.set_instance_id(paxos_consensus_.instance_id());
+            // do add the log
+            auto entry = std::make_shared<LogIf::Entry>();
+            if (!entry) {
+                roo::log_err("Create new entry failed.");
+                break;
+            }
 
-        if (request.proposal_id() < state_.promisedProposalID) {
-            response.set_type(Paxos::kBProposeRejected);
-            return;
-        }
+            entry->set_type(Paxos::EntryType::kNormal);
+            entry->set_data(request.value());
 
-        state_.accepted = true;
-        state_.acceptedProposalID = request.proposal_id();
-        state_.acceptedValue = request.value();
+            log_meta_->append(request.instance_id(), entry);
+            paxos_consensus_.state_machine_notify();
 
-        response.set_type(Paxos::kBProposeAccepted);
-#endif
+        } while (0);
+
+        // 任何情况下，只要收到on_learn_request，那么表示本轮的value已经Chosen了，
+        // 那么就应该使用close_instance()来关闭本轮的instance
+        //
+        // close this instance
+        paxos_consensus_.close_instance();
+
+        response.set_instance_id(log_meta_->last_index());
+        return;
+    }
+
+
+    void on_learn_response(const Paxos::BasicMessage& response) {
+
     }
 
     BasicLearnerState& state() {

@@ -31,6 +31,15 @@ struct BasicProposerState {
         numProposals = 0;
     }
 
+    void startup() {
+        preparing   = false;
+        proposing   = false;
+        highestReceivedProposalID = 0;
+        highestPromisedProposalID = 0;
+        value.clear();
+        numProposals = 0;
+    }
+
     // member
     bool        preparing;
     bool        proposing;
@@ -52,6 +61,10 @@ struct BasicAcceptorState {
         acceptedValue.clear();
     }
 
+    void startup() {
+        init();
+    }
+
     // member
     uint64_t    promisedProposalID;
     bool        accepted;
@@ -65,6 +78,10 @@ struct BasicLearnerState {
     void init() {
         learned = 0;
         value.clear();
+    }
+
+    void startup() {
+        init();
     }
 
 // member

@@ -95,9 +95,13 @@ uint64_t LevelDBLog::append(uint64_t index, const EntryPtr& newEntry) {
     std::lock_guard<std::mutex> lock(log_mutex_);
 
     // GAP ...
-    if (index != last_index_ + 1) {
+    if (index < last_index_ + 1) {
         roo::log_info("fast return with index %lu, last_index %lu.", index, last_index_);
         return last_index_;
+    }
+
+    if (index > last_index_ + 1) {
+        PANIC("LearnLog GAP found, index %lu and last_index+1 %lu.", index, last_index_ + 1);
     }
 
     // index == last_index_ + 1

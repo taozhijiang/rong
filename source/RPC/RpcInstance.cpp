@@ -40,7 +40,7 @@ bool RpcInstance::validate_request() {
     rpc_request_message_.header_ = header;
     rpc_request_message_.payload_ = msg_str;
 
-    roo::log_info("Validate/Parse RpcRequestMessage successfully: %s", rpc_request_message_.dump().c_str());
+//    roo::log_info("Validate/Parse RpcRequestMessage successfully: %s", rpc_request_message_.dump().c_str());
     return true;
 }
 

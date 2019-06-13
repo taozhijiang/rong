@@ -102,9 +102,9 @@ bool PaxosConsensus::init() {
             return false;
         }
 
-        peer_set_[iter->first] = peer;
+        cluster_set_[iter->first] = peer;
     }
-    roo::log_warning("Totally detected and successfully initialized %lu peers!", peer_set_.size());
+    roo::log_warning("Totally detected and successfully initialized %lu peers!", cluster_set_.size());
 
     // adjust log store path
     option_.log_path_ += "/instance_" + roo::StrUtil::to_string(option_.id_);
@@ -173,8 +173,8 @@ bool PaxosConsensus::init() {
 
 
 std::shared_ptr<Peer> PaxosConsensus::get_peer(uint64_t peer_id) const {
-    auto peer = peer_set_.find(peer_id);
-    if (peer == peer_set_.end()) {
+    auto peer = cluster_set_.find(peer_id);
+    if (peer == cluster_set_.end()) {
         roo::log_err("Bad, request peer_id's id(%lu) is not in peer_set!", peer_id);
         return{ };
     }
@@ -200,7 +200,8 @@ int PaxosConsensus::handle_paxos_basic_request(const Paxos::BasicMessage& reques
     } else if (request.type() == Paxos::kBProposeRequest) {
         acceptor_->on_propose_request(request, response);
         return 0;
-    } else if (request.type() == Paxos::kBProposeLearnValue) {
+    } else if (request.type() == Paxos::kBProposeLearnValue ||
+               request.type() == Paxos::kBProposeRequestChosen ) {
         learner_->on_learn_request(request, response);
         return 0;
     }
@@ -227,9 +228,10 @@ int PaxosConsensus::handle_paxos_basic_response(Paxos::BasicMessage response) {
                response.type() == Paxos::kBProposeAccepted) {
         proposer_->on_propose_response(response);
         return 0;
-    } else if (response.type() == Paxos::kBProposeRequestChosen ||
-               response.type() == Paxos::kBProposeStartCatchup ) {
-        proposer_->on_learn_response(response);
+    } else if (response.type() == Paxos::kBProposeLearnValue ||
+               response.type() == Paxos::kBProposeRequestChosen ) {
+        learner_->on_learn_response(response);
+        return 0;
     }
 
     roo::log_err("Unhandle paxos_basic response type found: %d", static_cast<int>(response.type()));
@@ -284,15 +286,26 @@ bool PaxosConsensus::is_leader() const {
     return false;
 }
 
+// 本函数的调用是在statemachine中被调用的，会被client_mutex_保护，所以单个节点中
+// 肯定是串行没有并发问题的
+// 但是BasicPaxos允许任意的节点发起提案，则可能会有instanceID的冲突
+// 对此，Paxos肯定能够保证一个instanceID中只有一个value被chosen
+// TODO:
+// 所以需要能够检测到这种情况，然后当客户端发现本instanceID被占用后，进行放弃或者重新尝试
 bool PaxosConsensus::startup_instance() {
+
+    // 不允许日志过于落后的instance发起请求，否则后续的日志填充将会比较麻烦
+    // 不过我们允许至少一个on-fly的日志，否则异常情况无法启动
+    if (context_->highest_instance_id() > log_meta_->last_index() + 1)
+        return -1;
 
     uint64_t current_instance_id = 0;
     if (!context_->startup_instance(current_instance_id))
         return false;
 
-    acceptor_->state().init();
-    proposer_->state().init();
-    learner_->state().init();
+    acceptor_->state().startup();
+    proposer_->state().startup();
+    learner_->state().startup();
 
     proposer_->state().instanceID = current_instance_id;
 
@@ -301,7 +314,13 @@ bool PaxosConsensus::startup_instance() {
 }
 
 void PaxosConsensus::close_instance() {
+
     context_->close_instance();
+
+    acceptor_->state().startup();
+    proposer_->state().startup();
+    learner_->state().startup();
+
     roo::log_info("close instance_id %lu.", proposer_->state().instanceID);
 }
 
@@ -369,22 +388,13 @@ int PaxosConsensus::state_machine_select(const std::string& cmd, std::string& qu
     return 0;
 }
 
-// 在调用该函数的时候，就会检查日志的完整性，如果当前日志的
-// last_index和instance_id不匹配，就会发起ChosenLearn的请求来学习日志
+// 此处只会写入日志，当状态机发现日志不完整的时候，会自动向其他Peer发起学习请求
 int PaxosConsensus::append_chosen(uint64_t index, const std::string& val) {
 
-    // 日志已经存在
-    if( index < log_meta_->last_index() + 1 )
-        return 0;
-
-    {
-        // 等待，填补提交日志的空隙
-        std::unique_lock<std::mutex> lock(consensus_mutex_);
-        while (index > log_meta_->last_index() + 1)
-            consensus_notify_.wait(lock);
+    if (index > log_meta_->last_index() + 1) {
+        PANIC("LearnLog GAP found, desired %lu, but last_index %lu.",
+              index, log_meta_->last_index() + 1);
     }
-
-    assert(index <= log_meta_->last_index() + 1);
 
     auto entry = std::make_shared<LogIf::Entry>();
     if (!entry) {

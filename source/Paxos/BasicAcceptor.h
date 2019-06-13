@@ -53,6 +53,7 @@ public:
         response.set_instance_id(request.instance_id());
 
 
+        // 过小的proposalID，拒绝之
         if (request.proposal_id() < state_.promisedProposalID) {
             response.set_type(Paxos::kBPrepareRejected);
             response.set_promised_proposal_id(state_.promisedProposalID);
@@ -66,6 +67,8 @@ public:
         if (!state_.accepted) {
             response.set_type(Paxos::kBPrepareCurrentlyOpen);
         } else {
+            roo::log_warning("for instance_id %lu, previous accepted with proposal_id %lu, value size %lu.",
+                             request.instance_id(), state_.acceptedProposalID, state_.acceptedValue.size());
             response.set_type(Paxos::kBPreparePreviouslyAccepted);
             response.set_accepted_proposal_id(state_.acceptedProposalID);
             response.set_value(state_.acceptedValue);

@@ -124,6 +124,8 @@ int LevelDBStore::update_handle(const Client::StateMachineUpdateOps::Request& re
 
     if (request.has_write()) {
 
+        roo::log_info("update_handle write for key %s, value %s.",
+                      request.write().key().c_str(), request.write().content().c_str());
 
         if (set(request.write().key(), request.write().content()) == 0)
             return 0;
@@ -136,6 +138,8 @@ int LevelDBStore::update_handle(const Client::StateMachineUpdateOps::Request& re
 
     if (request.has_remove()) {
 
+        roo::log_info("update_handle remove for key %s.",
+                      request.remove().key().c_str());
         if (del(request.remove().key()) == 0)
             return 0;
 
