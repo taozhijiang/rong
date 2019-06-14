@@ -28,10 +28,10 @@ public:
          const std::string& addr, uint16_t port, const rpc_handler_t& handler);
     ~Peer() = default;
 
-    int send_paxos_RPC(uint16_t service_id, uint16_t opcode, const std::string& payload) const;
+    int send_RPC_async(uint16_t service_id, uint16_t opcode, const std::string& payload) const;
 
-    int proxy_client_RPC(uint16_t service_id, uint16_t opcode,
-                         const std::string& payload, std::string& respload) const;
+    int send_RPC_sync(uint16_t service_id, uint16_t opcode,
+                      const std::string& payload, std::string& respload) const;
 
     std::string str() const {
 

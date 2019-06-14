@@ -84,7 +84,7 @@ public:
         for (auto iter = cluster_set_.begin(); iter != cluster_set_.end(); ++iter) {
             const auto peer = iter->second;
             roo::log_info("Send kPaxosBasic to %s:%d.", peer->addr_.c_str(), peer->port_);
-            peer->send_paxos_RPC(tzrpc::ServiceID::PAXOS_SERVICE, Paxos::OpCode::kPaxosLease, msg);
+            peer->send_RPC_async(tzrpc::ServiceID::PAXOS_SERVICE, Paxos::OpCode::kPaxosLease, msg);
         }
     }
 
@@ -95,8 +95,22 @@ public:
         for (auto iter = cluster_set_.begin(); iter != cluster_set_.end(); ++iter) {
             const auto peer = iter->second;
             roo::log_info("Send kPaxosBasic to %s:%d.", peer->addr_.c_str(), peer->port_);
-            peer->send_paxos_RPC(tzrpc::ServiceID::PAXOS_SERVICE, Paxos::OpCode::kPaxosBasic, msg);
+            peer->send_RPC_async(tzrpc::ServiceID::PAXOS_SERVICE, Paxos::OpCode::kPaxosBasic, msg);
         }
+    }
+
+    void send_paxos_basic(uint64_t node_id, const Paxos::BasicMessage& request) {
+        auto iter = cluster_set_.find(node_id);
+        if (iter == cluster_set_.end()) {
+            roo::log_err("Send PaxosBasic message to %lu, but node not in cluster.", node_id);
+            return;
+        }
+        std::string msg;
+        roo::ProtoBuf::marshalling_to_string(request, &msg);        
+        
+        const auto peer = iter->second;
+        roo::log_info("Send kPaxosBasic to %s:%d.", peer->addr_.c_str(), peer->port_);
+        peer->send_RPC_async(tzrpc::ServiceID::PAXOS_SERVICE, Paxos::OpCode::kPaxosBasic, msg);
     }
 
     // Paxos协议相关的RPC直接响应请求

@@ -63,14 +63,13 @@ enum BasicMessageType {
     kBProposeRejected       = 6;
     kBProposeAccepted       = 7;
 
-    // 当value被chosen之后，proposer -> Learner (kBProposeLearnValue)
-    //     如果learner学习成功，则返回kBProposeRequestChosen和原先的instance_id是一致的
-    //     否则instance_id就是需要learner返回的
-    // 任何时候，节点可以发起RequestChosen进行主动学习，对端返回LearnValue
-    //
-    kBProposeLearnValue     = 8;    // 发送具体的value
-    kBProposeRequestChosen  = 9;    // 对于缺少的value，可以通过该值进行学习
-    kBProposeStartCatchup   = 10;   // 快照
+    kBProposeLearnValue     = 8;    // learner发送具体的value让Peer学习
+    kBProposeLearnResponse  = 9;
+
+    kBProposeChosenValue    = 10;    // 对于缺少的value，主动请求学习
+    kBProposeChosenResponse = 11;   // 返回信息
+
+    kBProposeStartCatchup   = 12;   // 快照
 };
 
 
@@ -84,5 +83,6 @@ message BasicMessage {
     optional uint64             accepted_proposal_id = 6;
     optional uint64             promised_proposal_id = 7;
     optional bytes              value       = 8;
+    optional uint64             log_last_index = 9; // 本地最大的日志条目数目
 };
 

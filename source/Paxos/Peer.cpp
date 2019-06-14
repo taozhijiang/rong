@@ -44,7 +44,7 @@ Peer::Peer(uint64_t id,
         throw roo::ConstructException("Create RpClient failed.");
 }
 
-int Peer::send_paxos_RPC(uint16_t service_id, uint16_t opcode, const std::string& payload) const {
+int Peer::send_RPC_async(uint16_t service_id, uint16_t opcode, const std::string& payload) const {
 
     RpcClientStatus status = rpc_client_->call_RPC(service_id, opcode, payload);
     if (status != RpcClientStatus::OK) {
@@ -57,8 +57,8 @@ int Peer::send_paxos_RPC(uint16_t service_id, uint16_t opcode, const std::string
 }
 
 
-int Peer::proxy_client_RPC(uint16_t service_id, uint16_t opcode,
-                           const std::string& payload, std::string& respload) const {
+int Peer::send_RPC_sync(uint16_t service_id, uint16_t opcode,
+                        const std::string& payload, std::string& respload) const {
 
     RpcClientStatus status = rpc_proxy_->call_RPC(service_id, opcode, payload, respload);
     if (status != RpcClientStatus::OK) {

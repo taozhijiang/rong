@@ -201,8 +201,28 @@ int PaxosConsensus::handle_paxos_basic_request(const Paxos::BasicMessage& reques
         acceptor_->on_propose_request(request, response);
         return 0;
     } else if (request.type() == Paxos::kBProposeLearnValue ||
-               request.type() == Paxos::kBProposeRequestChosen ) {
+               request.type() == Paxos::kBProposeChosenValue ) {
+        
+        // skip local message
+        if (request.node_id() == context_->kID)
+            return 0;
+
         learner_->on_learn_request(request, response);
+
+        if (request.type() == Paxos::kBProposeLearnValue) {
+
+            // 如果本机的日志不全
+            if (response.instance_id() < request.instance_id()) {
+                Paxos::BasicMessage message {};
+                message.set_type(Paxos::kBProposeChosenValue);
+                message.set_node_id(context_->kID);
+                message.set_proposal_id(current_instance_id());
+                message.set_instance_id(response.instance_id() + 1); // 表示需要的日志条目索引号
+
+                send_paxos_basic(request.node_id(), message);
+                roo::log_warning("Expecting log from %lu.", response.instance_id());
+            }
+        }
         return 0;
     }
 
@@ -228,9 +248,25 @@ int PaxosConsensus::handle_paxos_basic_response(Paxos::BasicMessage response) {
                response.type() == Paxos::kBProposeAccepted) {
         proposer_->on_propose_response(response);
         return 0;
-    } else if (response.type() == Paxos::kBProposeLearnValue ||
-               response.type() == Paxos::kBProposeRequestChosen ) {
+    } else if (response.type() == Paxos::kBProposeLearnResponse ||
+               response.type() == Paxos::kBProposeChosenResponse ) {
         learner_->on_learn_response(response);
+
+        if (response.type() == Paxos::kBProposeChosenResponse) {
+
+            // 如果本机的日志不全
+            if (log_meta_->last_index() < response.log_last_index()) {
+                Paxos::BasicMessage message {};
+                message.set_type(Paxos::kBProposeChosenValue);
+                message.set_node_id(context_->kID);
+                message.set_proposal_id(current_instance_id());
+                message.set_instance_id(log_meta_->last_index() + 1); // 表示需要的日志条目索引号
+
+                send_paxos_basic(response.node_id(), message);
+                roo::log_warning("Expecting log from %lu at %lu.", response.node_id(), message.instance_id());
+            }
+        }
+
         return 0;
     }
 

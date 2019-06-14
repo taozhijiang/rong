@@ -209,10 +209,10 @@ void ClientService::client_select_impl(std::shared_ptr<RpcInstance> rpc_instance
         }
 
         std::string proxy_response_str{};
-        int code = client->proxy_client_RPC(rpc_request_message.header_.service_id,
-                                            rpc_request_message.header_.opcode,
-                                            rpc_request_message.payload_,
-                                            proxy_response_str);
+        int code = client->send_RPC_sync(rpc_request_message.header_.service_id,
+                                         rpc_request_message.header_.opcode,
+                                         rpc_request_message.payload_,
+                                         proxy_response_str);
         if (code != 0) {
             roo::log_err("Forward client request from %lu to %lu failed with %d",
                          Captain::instance().raft_consensus_ptr_->my_id(), leader_id, code);
@@ -264,10 +264,10 @@ void ClientService::client_update_impl(std::shared_ptr<RpcInstance> rpc_instance
         }
 
         std::string proxy_response_str{};
-        int code = client->proxy_client_RPC(rpc_request_message.header_.service_id,
-                                            rpc_request_message.header_.opcode,
-                                            rpc_request_message.payload_,
-                                            proxy_response_str);
+        int code = client->send_RPC_sync(rpc_request_message.header_.service_id,
+                                         rpc_request_message.header_.opcode,
+                                         rpc_request_message.payload_,
+                                         proxy_response_str);
         if (code != 0) {
             roo::log_err("Forward client request from %lu to %lu failed with %d",
                          Captain::instance().raft_consensus_ptr_->my_id(), leader_id, code);
