@@ -51,6 +51,7 @@ public:
         response.set_node_id(paxos_consensus_.context_->kID);
         response.set_proposal_id(request.proposal_id());
         response.set_instance_id(request.instance_id());
+        response.set_log_last_index(paxos_consensus_.log_meta_->last_index());
 
 
         // 过小的proposalID，拒绝之
@@ -88,6 +89,7 @@ public:
         response.set_node_id(paxos_consensus_.context_->kID);
         response.set_proposal_id(request.proposal_id());
         response.set_instance_id(request.instance_id());
+        response.set_log_last_index(paxos_consensus_.log_meta_->last_index());
 
         if (request.proposal_id() < state_.promisedProposalID) {
             response.set_type(Paxos::kBProposeRejected);

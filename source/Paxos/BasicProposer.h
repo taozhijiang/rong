@@ -58,12 +58,18 @@ public:
         message.set_node_id(paxos_consensus_.context_->kID);
         message.set_proposal_id(state_.proposalID);
         message.set_instance_id(state_.instanceID);
+        message.set_log_last_index(paxos_consensus_.log_meta_->last_index());
 
         granted_.clear();
         rejected_.clear();
         granted_.insert(paxos_consensus_.context_->kID);
 
+        roo::log_info("Start Prepare with proposalID %lu from %lu", 
+                      state_.proposalID, paxos_consensus_.context_->kID);
         paxos_consensus_.send_paxos_basic(message);
+
+        // 开启定时器
+        paxos_consensus_.prepare_propose_timer_.schedule();
     }
 
 
@@ -78,12 +84,16 @@ public:
         message.set_proposal_id(state_.proposalID);
         message.set_instance_id(state_.instanceID);
         message.set_value(state_.value);
+        message.set_log_last_index(paxos_consensus_.log_meta_->last_index());
 
         granted_.clear();
         rejected_.clear();
         granted_.insert(paxos_consensus_.context_->kID);
 
         paxos_consensus_.send_paxos_basic(message);
+
+        // 开启定时器
+        paxos_consensus_.prepare_propose_timer_.schedule();
     }
 
     void on_prepare_response(const Paxos::BasicMessage& response) {
@@ -107,8 +117,8 @@ public:
 
         if (response.type() == Paxos::kBPrepareRejected) {
             if (response.promised_proposal_id() > state_.highestPromisedProposalID) {
-                roo::log_warning("Rejected with new highestPromisedProposalID %lu.",
-                                 response.promised_proposal_id());
+                roo::log_warning("Rejected with new highestPromisedProposalID %lu from %lu.",
+                                 response.promised_proposal_id(), response.node_id());
                 state_.highestPromisedProposalID = response.promised_proposal_id();
                 rejected_.insert(response.node_id());
             }
@@ -177,6 +187,9 @@ public:
                              "value size %lu.",
                              state_.instanceID, state_.proposalID, state_.value.size());
 
+            // 关闭定时器
+            paxos_consensus_.prepare_propose_timer_.disable();
+
             // Store to LogIf
             paxos_consensus_.append_chosen(state_.instanceID, state_.value);
 
@@ -187,6 +200,7 @@ public:
             message.set_proposal_id(state_.proposalID);
             message.set_instance_id(state_.instanceID);
             message.set_value(state_.value);
+            message.set_log_last_index(paxos_consensus_.log_meta_->last_index());
 
             paxos_consensus_.send_paxos_basic(message);
 

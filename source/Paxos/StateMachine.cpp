@@ -83,24 +83,17 @@ again:
         }
 
         entry = log_meta_->entry(apply_instance_id_ + 1);
-        if (entry->type() == Paxos::EntryType::kNoop) {
-            roo::log_info("Skip NOOP type entry, current processing apply_index %lu.",
-                          apply_instance_id_ + 1);
-        } else if (entry->type() == Paxos::EntryType::kNormal) {
-            // 无论成功失败，都前进
-            std::string content;
-            if (do_apply(entry, content) == 0) {
-                if (!content.empty()) {
-                    std::lock_guard<std::mutex> lock(apply_rsp_mutex_);
-                    apply_rsp_[apply_instance_id_ + 1] = content;
-                }
+         
+        // 无论成功失败，都前进
+        std::string content;
+        if (do_apply(entry, content) == 0) {
+            if (!content.empty()) {
+                std::lock_guard<std::mutex> lock(apply_rsp_mutex_);
+                apply_rsp_[apply_instance_id_ + 1] = content;
             }
-            roo::log_info("Applied Normal type entry, current processing apply_index %lu.",
-                          apply_instance_id_ + 1);
-        } else {
-            PANIC("Unhandled entry type %d found at instance_id %lu.",
-                  static_cast<int>(entry->type()), apply_instance_id_);
         }
+        roo::log_info("Applied entry at current processing apply_index %lu.",
+                        apply_instance_id_ + 1);
 
         // step forward apply_index
         ++apply_instance_id_;

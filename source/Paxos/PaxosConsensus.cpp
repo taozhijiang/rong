@@ -190,8 +190,11 @@ int PaxosConsensus::handle_paxos_lease_request(const Paxos::LeaseMessage& reques
 int PaxosConsensus::handle_paxos_basic_request(const Paxos::BasicMessage& request, Paxos::BasicMessage& response) {
 
     // 更新全局的最新instance_id
-    if (request.has_instance_id() && context_->highest_instance_id() < request.instance_id()) {
+    if (context_->highest_instance_id() < request.instance_id()) {
         context_->update_highest_instance_id(request.instance_id());
+    }
+    if (proposer_->state().instanceID < request.instance_id()) {
+        proposer_->state().instanceID = request.instance_id();
     }
 
     if (request.type() == Paxos::kBPrepareRequest) {
@@ -218,6 +221,7 @@ int PaxosConsensus::handle_paxos_basic_request(const Paxos::BasicMessage& reques
                 message.set_node_id(context_->kID);
                 message.set_proposal_id(current_instance_id());
                 message.set_instance_id(response.instance_id() + 1); // 表示需要的日志条目索引号
+                message.set_log_last_index(log_meta_->last_index());
 
                 send_paxos_basic(request.node_id(), message);
                 roo::log_warning("Expecting log from %lu.", response.instance_id());
@@ -261,6 +265,7 @@ int PaxosConsensus::handle_paxos_basic_response(Paxos::BasicMessage response) {
                 message.set_node_id(context_->kID);
                 message.set_proposal_id(current_instance_id());
                 message.set_instance_id(log_meta_->last_index() + 1); // 表示需要的日志条目索引号
+                message.set_log_last_index(log_meta_->last_index());
 
                 send_paxos_basic(response.node_id(), message);
                 roo::log_warning("Expecting log from %lu at %lu.", response.node_id(), message.instance_id());
@@ -331,9 +336,12 @@ bool PaxosConsensus::is_leader() const {
 bool PaxosConsensus::startup_instance() {
 
     // 不允许日志过于落后的instance发起请求，否则后续的日志填充将会比较麻烦
-    // 不过我们允许至少一个on-fly的日志，否则异常情况无法启动
-    if (context_->highest_instance_id() > log_meta_->last_index() + 1)
-        return -1;
+    // 我们要求必须连续具有最新的日志才能发起客户端写请求
+    if (context_->highest_instance_id() > log_meta_->last_index()) {
+        roo::log_err("current detect highest_instance_id %lu, log last_index %lu, reject client request.",
+                    context_->highest_instance_id(), log_meta_->last_index());
+        return false;
+    }
 
     uint64_t current_instance_id = 0;
     if (!context_->startup_instance(current_instance_id))
@@ -438,7 +446,6 @@ int PaxosConsensus::append_chosen(uint64_t index, const std::string& val) {
         return -1;
     }
 
-    entry->set_type(Paxos::EntryType::kNormal);
     entry->set_data(val);
 
     auto code = log_meta_->append(index, entry);

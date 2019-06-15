@@ -42,7 +42,7 @@ public:
 
 public:
     // 当前主机的NodeID
-    const uint32_t kID;
+    const uint64_t kID;
     std::unique_ptr<LogIf>& log_meta_;
 
 private:

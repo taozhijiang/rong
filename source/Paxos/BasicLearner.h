@@ -88,7 +88,6 @@ private:
                 break;
             }
 
-            entry->set_type(Paxos::EntryType::kNormal);
             entry->set_data(request.value());
 
             log_meta_->append(request.instance_id(), entry);
@@ -104,6 +103,7 @@ private:
 
         // 响应是最后一条日志索引
         response.set_instance_id(log_meta_->last_index());
+        response.set_log_last_index(log_meta_->last_index());
         return;
     }
 
@@ -113,6 +113,8 @@ private:
         response.set_type(Paxos::kBProposeChosenResponse);
         response.set_node_id(paxos_consensus_.context_->kID);
         response.set_proposal_id(request.proposal_id());
+        response.set_instance_id(request.instance_id());
+        response.set_log_last_index(log_meta_->last_index());
 
         do {
 
@@ -130,9 +132,7 @@ private:
                 PANIC("request log at %lu not found!", request.instance_id());
             }
 
-            response.set_instance_id(request.instance_id());
             response.set_value(entry->data());
-            response.set_log_last_index(log_meta_->last_index());
 
         } while (0);
 
@@ -170,7 +170,6 @@ private:
                 break;
             }
 
-            entry->set_type(Paxos::EntryType::kNormal);
             entry->set_data(response.value());
 
             log_meta_->append(response.instance_id(), entry);

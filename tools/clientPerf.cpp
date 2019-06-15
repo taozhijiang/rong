@@ -28,7 +28,7 @@ static void usage() {
 
 
 const std::string srv_addr = "127.0.0.1";
-const uint16_t    srv_port = 10802;
+const uint16_t    srv_port = 10902;
 
 using namespace tzrpc_client;
 
@@ -71,7 +71,7 @@ void* perf_get_run(void* x_void_ptr) {
                                       rong::Client::OpCode::kSelect,
                                       mar_str, resp_str);
         if (status != RpcClientStatus::OK) {
-            std::cerr << "call failed, return code [" << static_cast<uint8_t>(status) << "]" << std::endl;
+            std::cerr << "call failed, return code [" << static_cast<uint32_t>(status) << "]" << std::endl;
             stop = true;
             continue;
         }
@@ -118,7 +118,7 @@ void* perf_set_run(void* x_void_ptr) {
                                       rong::Client::OpCode::kUpdate,
                                       mar_str, resp_str);
         if (status != RpcClientStatus::OK) {
-            std::cerr << "call failed, return code [" << static_cast<uint8_t>(status) << "]" << std::endl;
+            std::cerr << "call failed, return code [" << static_cast<uint32_t>(status) << "]" << std::endl;
             stop = true;
             continue;
         }
