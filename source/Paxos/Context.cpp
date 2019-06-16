@@ -48,7 +48,7 @@ bool Context::startup_instance(uint64_t& curr_instance_id) {
         return false;
 
     active_ = true;
-    curr_instance_id = ++ highest_instance_id_;
+    curr_instance_id = ++highest_instance_id_;
 
     log_meta_->set_meta_highest_instance_id(curr_instance_id);
     return true;

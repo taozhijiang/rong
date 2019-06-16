@@ -12,6 +12,7 @@
 #include <other/Log.h>
 #include <other/FilesystemUtil.h>
 #include <message/ProtoBuf.h>
+#include <string/StrUtil.h>
 
 #include <Paxos/LevelDBStore.h>
 
@@ -102,8 +103,8 @@ int LevelDBStore::select_handle(const Client::StateMachineSelectOps::Request& re
 
         }
 
-        roo::log_err("Unknown operations for StateMachineSelectOps.");
-        result = -1;
+        PANIC("Unknown operations for StateMachineUpdateOps, cmd dump: %s.",
+              roo::ProtoBuf::dump(request).c_str());
 
     } while (0);
 
@@ -148,9 +149,8 @@ int LevelDBStore::update_handle(const Client::StateMachineUpdateOps::Request& re
 
     }
 
-
-    roo::log_err("Unknown operations for StateMachineUpdateOps.");
-    return -1;
+    PANIC("Unknown operations for StateMachineUpdateOps, cmd dump: %s.",
+          roo::ProtoBuf::dump(request).c_str());
 }
 
 

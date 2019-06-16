@@ -64,8 +64,8 @@ public:
         rejected_.clear();
         granted_.insert(paxos_consensus_.context_->kID);
 
-        roo::log_info("Start Prepare with proposalID %lu from %lu", 
-                      state_.proposalID, paxos_consensus_.context_->kID);
+        roo::log_info("Start Prepare with instanceID %lu proposalID 0x%016lx from node %lu.",
+                      state_.instanceID, state_.proposalID, paxos_consensus_.context_->kID);
         paxos_consensus_.send_paxos_basic(message);
 
         // 开启定时器
@@ -90,6 +90,8 @@ public:
         rejected_.clear();
         granted_.insert(paxos_consensus_.context_->kID);
 
+        roo::log_info("Start Propose with instanceID %lu proposalID 0x%016lx from node %lu.",
+                      state_.instanceID, state_.proposalID, paxos_consensus_.context_->kID);
         paxos_consensus_.send_paxos_basic(message);
 
         // 开启定时器
@@ -104,20 +106,20 @@ public:
         }
 
         if (response.instance_id() != state_.instanceID) {
-            roo::log_err("PrepareResponse instance_id does not match, expect %lu get %lu.",
+            roo::log_err("PrepareResponse instance_id does not match, expect %lu but get %lu.",
                          state_.instanceID, response.instance_id());
             return;
         }
 
         if (response.proposal_id() != state_.proposalID) {
-            roo::log_err("PrepareResponse proposal_id does not match, expected %lu get %lu.",
+            roo::log_err("PrepareResponse proposal_id does not match, expect 0x%016lx but get 0x%016lx.",
                          state_.proposalID, response.proposal_id());
             return;
         }
 
         if (response.type() == Paxos::kBPrepareRejected) {
             if (response.promised_proposal_id() > state_.highestPromisedProposalID) {
-                roo::log_warning("Rejected with new highestPromisedProposalID %lu from %lu.",
+                roo::log_warning("Rejected with new highestPromisedProposalID 0x%016lx from node %lu.",
                                  response.promised_proposal_id(), response.node_id());
                 state_.highestPromisedProposalID = response.promised_proposal_id();
                 rejected_.insert(response.node_id());
@@ -134,22 +136,23 @@ public:
             state_.highestReceivedProposalID = response.accepted_proposal_id();
             state_.value = response.value();
             granted_.insert(response.node_id());
+            roo::log_warning("Granted but already node %lu already accepted previous value with proposalID: 0x%016lx.",
+                         response.node_id(), response.accepted_proposal_id());
         } else if (response.type() == Paxos::kBPrepareCurrentlyOpen) {
             granted_.insert(response.node_id());
         } else {
-            roo::log_err("Unhandled message type: %d", response.type());
-            return;
+            PANIC("Unhandled message type: %d", response.type());
         }
 
         if (granted_.size() >= paxos_consensus_.quorum_count()) {
-            roo::log_warning("prepare success with granted size %lu, proposalID %lu.",
+            roo::log_warning("prepare success with granted size %lu, proposalID 0x%016lx.",
                              granted_.size(), state_.proposalID);
             start_proposing();
             return;
         }
 
         if (rejected_.size() >= paxos_consensus_.quorum_count()) {
-            roo::log_warning("prepare failed with rejected size %lu, proposalID %lu.",
+            roo::log_warning("prepare failed with rejected size %lu, proposalID 0x%016lx.",
                              rejected_.size(), state_.proposalID);
             start_preparing();
             return;
@@ -165,13 +168,13 @@ public:
         }
 
         if (response.instance_id() != state_.instanceID) {
-            roo::log_err("ProposeResponse instance_id does not match, expect %lu get %lu.",
+            roo::log_err("ProposeResponse instance_id does not match, expect %lu but get %lu.",
                          state_.instanceID, response.instance_id());
             return;
         }
 
         if (response.proposal_id() != state_.proposalID) {
-            roo::log_err("ProposeResponse proposal_id does not match, expected %lu get %lu.",
+            roo::log_err("ProposeResponse proposal_id does not match, expect 0x%016lx but get 0x%016lx.",
                          state_.proposalID, response.proposal_id());
             return;
         }
@@ -183,7 +186,7 @@ public:
         }
 
         if (granted_.size() >= paxos_consensus_.quorum_count()) {
-            roo::log_warning("good for value chosen at instance_id %lu, proposal_id %lu, "
+            roo::log_warning("good for value chosen at instance_id %lu, proposal_id 0x%016lx, "
                              "value size %lu.",
                              state_.instanceID, state_.proposalID, state_.value.size());
 
@@ -209,7 +212,7 @@ public:
         }
 
         if (rejected_.size() >= paxos_consensus_.quorum_count()) {
-            roo::log_warning("propose failed with rejected size %lu, proposalID %lu.",
+            roo::log_warning("propose failed with rejected size %lu, proposalID 0x%016lx.",
                              rejected_.size(), state_.proposalID);
             start_preparing();
             return;

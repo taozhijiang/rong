@@ -43,8 +43,8 @@ public:
 
     void on_prepare_request(const Paxos::BasicMessage& request, Paxos::BasicMessage& response) {
 
-        roo::log_info("Current local instance_id %lu, promised_proposal_id %lu, "
-                      "        request instance_id %lu, proposal_id: %lu.",
+        roo::log_info("Current local instance_id %lu, promised_proposal_id 0x%016lx, "
+                      "        request instance_id %lu, proposal_id: 0x%016lx.",
                       paxos_consensus_.current_instance_id(), state_.promisedProposalID,
                       request.instance_id(), request.proposal_id());
 
@@ -68,7 +68,7 @@ public:
         if (!state_.accepted) {
             response.set_type(Paxos::kBPrepareCurrentlyOpen);
         } else {
-            roo::log_warning("for instance_id %lu, previous accepted with proposal_id %lu, value size %lu.",
+            roo::log_warning("for instance_id %lu, previous accepted with proposal_id 0x%016lx, value size %lu.",
                              request.instance_id(), state_.acceptedProposalID, state_.acceptedValue.size());
             response.set_type(Paxos::kBPreparePreviouslyAccepted);
             response.set_accepted_proposal_id(state_.acceptedProposalID);
@@ -81,7 +81,7 @@ public:
 
     void on_propose_request(const Paxos::BasicMessage& request, Paxos::BasicMessage& response) {
 
-        roo::log_info("Current local instance_id %lu, promised_proposal_id %lu, "
+        roo::log_info("Current local instance_id %lu, promised_proposal_id 0x%016lx, "
                       "        request instance_id %lu, proposal_id: %lu.",
                       paxos_consensus_.current_instance_id(), state_.promisedProposalID,
                       request.instance_id(), request.proposal_id());
@@ -115,7 +115,7 @@ private:
 
     void persist_state() {
 
-        MetaDataType meta {};
+        MetaDataType meta{};
         meta.set_instance_id(paxos_consensus_.current_instance_id());
         meta.set_accepted(state_.accepted);
         meta.set_promised_proposal_id(state_.promisedProposalID);

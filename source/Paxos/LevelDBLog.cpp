@@ -295,7 +295,7 @@ uint64_t LevelDBLog::meta_apply_instance_id() const {
 
     std::string val;
     leveldb::Status status
-            = log_meta_fp_->Get(leveldb::ReadOptions(), META_APPLY_INSTANCE_ID, &val);
+        = log_meta_fp_->Get(leveldb::ReadOptions(), META_APPLY_INSTANCE_ID, &val);
     if (status.ok())
         return Endian::uint64_from_net(val);
 
@@ -305,8 +305,8 @@ uint64_t LevelDBLog::meta_apply_instance_id() const {
 int LevelDBLog::set_meta_apply_instance_id(uint64_t instance_id) const {
 
     leveldb::Status status =
-            log_meta_fp_->Put(leveldb::WriteOptions(),
-                              META_APPLY_INSTANCE_ID, Endian::uint64_to_net(instance_id));
+        log_meta_fp_->Put(leveldb::WriteOptions(),
+                          META_APPLY_INSTANCE_ID, Endian::uint64_to_net(instance_id));
     if (!status.ok()) {
         roo::log_err("Update Meta set %s = %lu failed.", META_APPLY_INSTANCE_ID, instance_id);
         return -1;
@@ -318,7 +318,7 @@ uint64_t LevelDBLog::meta_highest_instance_id() const {
 
     std::string val;
     leveldb::Status status
-            = log_meta_fp_->Get(leveldb::ReadOptions(), META_HIGHEST_INSTANCE_ID, &val);
+        = log_meta_fp_->Get(leveldb::ReadOptions(), META_HIGHEST_INSTANCE_ID, &val);
     if (status.ok())
         return Endian::uint64_from_net(val);
 
@@ -328,8 +328,8 @@ uint64_t LevelDBLog::meta_highest_instance_id() const {
 int LevelDBLog::set_meta_highest_instance_id(uint64_t instance_id) const {
 
     leveldb::Status status =
-            log_meta_fp_->Put(leveldb::WriteOptions(),
-                              META_HIGHEST_INSTANCE_ID, Endian::uint64_to_net(instance_id));
+        log_meta_fp_->Put(leveldb::WriteOptions(),
+                          META_HIGHEST_INSTANCE_ID, Endian::uint64_to_net(instance_id));
     if (!status.ok()) {
         roo::log_err("Update Meta set %s = %lu failed.", META_HIGHEST_INSTANCE_ID, instance_id);
         return -1;

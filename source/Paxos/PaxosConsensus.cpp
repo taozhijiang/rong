@@ -165,6 +165,24 @@ bool PaxosConsensus::init() {
     acceptor_.reset(new BasicAcceptor(*this, meta));
     learner_.reset(new BasicLearner(*this, log_meta_));
 
+    // 如果一个节点挂掉很久之后又重新起来了，那么它的log可能会落后很多，这里
+    // 先发起一个学习请求，然后如果发现自己的日志落后，会触发一连串的学习
+    // 请求，尽快主动补全自己的日志条目
+    //
+    // TODO: 依次向初始化的Peer发送同步请求，获取最大的last_index然后学习之
+    {
+        Paxos::BasicMessage message{};
+        message.set_type(Paxos::kBProposeChosenValue);
+        message.set_node_id(context_->kID);
+        message.set_proposal_id(proposer_->state().proposalID);
+        message.set_instance_id(log_meta_->last_index());
+        message.set_log_last_index(log_meta_->last_index());
+
+        send_paxos_basic(message);
+        roo::log_warning("Expecting log from %lu.", log_meta_->last_index());
+    }
+
+
     // 主工作线程
     main_thread_ = std::thread(std::bind(&PaxosConsensus::main_thread_loop, this));
 
@@ -189,12 +207,11 @@ int PaxosConsensus::handle_paxos_lease_request(const Paxos::LeaseMessage& reques
 
 int PaxosConsensus::handle_paxos_basic_request(const Paxos::BasicMessage& request, Paxos::BasicMessage& response) {
 
+    roo::log_info("RECV ProtoBuf Message: %s", request.DebugString().c_str());
+
     // 更新全局的最新instance_id
     if (context_->highest_instance_id() < request.instance_id()) {
         context_->update_highest_instance_id(request.instance_id());
-    }
-    if (proposer_->state().instanceID < request.instance_id()) {
-        proposer_->state().instanceID = request.instance_id();
     }
 
     if (request.type() == Paxos::kBPrepareRequest) {
@@ -204,8 +221,8 @@ int PaxosConsensus::handle_paxos_basic_request(const Paxos::BasicMessage& reques
         acceptor_->on_propose_request(request, response);
         return 0;
     } else if (request.type() == Paxos::kBProposeLearnValue ||
-               request.type() == Paxos::kBProposeChosenValue ) {
-        
+               request.type() == Paxos::kBProposeChosenValue) {
+
         // skip local message
         if (request.node_id() == context_->kID)
             return 0;
@@ -216,10 +233,10 @@ int PaxosConsensus::handle_paxos_basic_request(const Paxos::BasicMessage& reques
 
             // 如果本机的日志不全
             if (response.instance_id() < request.instance_id()) {
-                Paxos::BasicMessage message {};
+                Paxos::BasicMessage message{};
                 message.set_type(Paxos::kBProposeChosenValue);
                 message.set_node_id(context_->kID);
-                message.set_proposal_id(current_instance_id());
+                message.set_proposal_id(proposer_->state().proposalID);
                 message.set_instance_id(response.instance_id() + 1); // 表示需要的日志条目索引号
                 message.set_log_last_index(log_meta_->last_index());
 
@@ -242,6 +259,14 @@ int PaxosConsensus::handle_paxos_lease_response(Paxos::LeaseMessage response) {
 
 
 int PaxosConsensus::handle_paxos_basic_response(Paxos::BasicMessage response) {
+    
+    roo::log_info("RECV ProtoBuf Message: %s", response.DebugString().c_str());
+
+    // 更新全局的最新instance_id
+    if (context_->highest_instance_id() < response.instance_id()) {
+        context_->update_highest_instance_id(response.instance_id());
+    }
+
 
     if (response.type() == Paxos::kBPrepareRejected ||
         response.type() == Paxos::kBPreparePreviouslyAccepted ||
@@ -253,14 +278,14 @@ int PaxosConsensus::handle_paxos_basic_response(Paxos::BasicMessage response) {
         proposer_->on_propose_response(response);
         return 0;
     } else if (response.type() == Paxos::kBProposeLearnResponse ||
-               response.type() == Paxos::kBProposeChosenResponse ) {
+               response.type() == Paxos::kBProposeChosenResponse) {
         learner_->on_learn_response(response);
 
         if (response.type() == Paxos::kBProposeChosenResponse) {
 
-            // 如果本机的日志不全
+            // 如果本机的日志不全，则主动发起学习
             if (log_meta_->last_index() < response.log_last_index()) {
-                Paxos::BasicMessage message {};
+                Paxos::BasicMessage message{};
                 message.set_type(Paxos::kBProposeChosenValue);
                 message.set_node_id(context_->kID);
                 message.set_proposal_id(current_instance_id());
@@ -337,9 +362,13 @@ bool PaxosConsensus::startup_instance() {
 
     // 不允许日志过于落后的instance发起请求，否则后续的日志填充将会比较麻烦
     // 我们要求必须连续具有最新的日志才能发起客户端写请求
+    //
+    // 对于比如节点挂掉导致其提出的instance没有办法被提交，我们将会在节点启动
+    // 或者Leader选举的时候，做这种情况的额外处理
+    //
     if (context_->highest_instance_id() > log_meta_->last_index()) {
         roo::log_err("current detect highest_instance_id %lu, log last_index %lu, reject client request.",
-                    context_->highest_instance_id(), log_meta_->last_index());
+                     context_->highest_instance_id(), log_meta_->last_index());
         return false;
     }
 
@@ -405,7 +434,7 @@ int PaxosConsensus::state_machine_update(const std::string& cmd, std::string& ap
 
     roo::ProtoBuf::marshalling_to_string(response, &apply_out);
 
-    context_->close_instance();
+    close_instance();
     return 0;
 }
 
@@ -471,12 +500,16 @@ void PaxosConsensus::main_thread_loop() {
 
         if (prepare_propose_timer_.timeout(option_.prepare_propose_timeout_ms_)) {
             if (proposer_->state().preparing) {
+                roo::log_warning("Prepare timeout for %lu msec, restart with prepare stage.",
+                                 option_.prepare_propose_timeout_ms_.count());
                 proposer_->start_preparing();
             } else if (proposer_->state().proposing) {
                 // 如果在Accept阶段超时了，则从新从第一阶段Prepare开始重新发起提议
+                roo::log_warning("Propose timeout for %lu msec, restart with prepare stage.",
+                                 option_.prepare_propose_timeout_ms_.count());
                 proposer_->start_preparing();
             } else {
-                PANIC("Invalid proposer state with timeout specified.");
+                PANIC("Invalid prepare/proposer state with timeout specified.");
             }
         }
     }

@@ -63,9 +63,9 @@ void StateMachine::state_machine_loop() {
 #endif
         }
 
-        LogIf::EntryPtr entry {};
+        LogIf::EntryPtr entry{};
 
-again:
+     again:
 
         if (snapshot_progress_ == SnapshotProgress::kBegin)
             snapshot_progress_ = SnapshotProgress::kProcessing;
@@ -83,7 +83,7 @@ again:
         }
 
         entry = log_meta_->entry(apply_instance_id_ + 1);
-         
+
         // 无论成功失败，都前进
         std::string content;
         if (do_apply(entry, content) == 0) {
@@ -93,7 +93,7 @@ again:
             }
         }
         roo::log_info("Applied entry at current processing apply_index %lu.",
-                        apply_instance_id_ + 1);
+                      apply_instance_id_ + 1);
 
         // step forward apply_index
         ++apply_instance_id_;

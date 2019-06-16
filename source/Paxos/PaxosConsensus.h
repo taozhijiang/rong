@@ -106,8 +106,8 @@ public:
             return;
         }
         std::string msg;
-        roo::ProtoBuf::marshalling_to_string(request, &msg);        
-        
+        roo::ProtoBuf::marshalling_to_string(request, &msg);
+
         const auto peer = iter->second;
         roo::log_info("Send kPaxosBasic to %s:%d.", peer->addr_.c_str(), peer->port_);
         peer->send_RPC_async(tzrpc::ServiceID::PAXOS_SERVICE, Paxos::OpCode::kPaxosBasic, msg);
@@ -159,7 +159,7 @@ public:
 
     Option option_;
 
-    // 一些易变、需要持久化的数据集
+    // 一些易变、但大部分需要持久化的数据集
     std::shared_ptr<Context> context_;
 
     // 实例的全局互斥保护

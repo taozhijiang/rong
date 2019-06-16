@@ -33,9 +33,9 @@ public:
         roo::log_info("Current local last_index %lu, request.instance_id %lu.",
                       log_meta_->last_index(), request.instance_id());
 
-        if (request.type() == Paxos::kBProposeLearnValue ) {
+        if (request.type() == Paxos::kBProposeLearnValue) {
             return on_learn_value_request(request, response);
-        } else if (request.type() == Paxos::kBProposeChosenValue ) {
+        } else if (request.type() == Paxos::kBProposeChosenValue) {
             return on_chosen_value_request(request, response);
         }
 
@@ -48,9 +48,9 @@ public:
         roo::log_info("Current local last_index %lu, request.instance_id %lu.",
                       log_meta_->last_index(), response.instance_id());
 
-        if (response.type() == Paxos::kBProposeLearnResponse ) {
+        if (response.type() == Paxos::kBProposeLearnResponse) {
             return on_learn_value_response(response);
-        } else if (response.type() == Paxos::kBProposeChosenResponse ) {
+        } else if (response.type() == Paxos::kBProposeChosenResponse) {
             return on_chosen_value_response(response);
         }
 
@@ -118,6 +118,9 @@ private:
 
         do {
 
+            if (request.instance_id() == 0)
+                break;
+
             // 日志不存在
             if (request.instance_id() > log_meta_->last_index()) {
                 roo::log_err("request log at %lu not found, current last_index %lu.",
@@ -157,7 +160,7 @@ private:
             if (response.instance_id() <= log_meta_->last_index())
                 break;
 
-            // 一条一条发送接收
+            // 一条一条的进行已ChonseValue的发送和接收
             if (response.instance_id() > log_meta_->last_index() + 1) {
                 PANIC("LearnLog Gap found, should not meet in chosen response %lu.", log_meta_->last_index());
                 break;
@@ -171,8 +174,9 @@ private:
             }
 
             entry->set_data(response.value());
-
             log_meta_->append(response.instance_id(), entry);
+
+            // 通知状态机执行更新
             paxos_consensus_.state_machine_notify();
 
         } while (0);
