@@ -46,6 +46,11 @@ class BasicProposer;
 class BasicAcceptor;
 class BasicLearner;
 
+// 需要Chosen的Value类型和状态机执行响应类型
+typedef Paxos::Entry         EntryType;
+typedef Paxos::ApplyResponse ApplyResponseType;
+
+
 class PaxosConsensus {
 
     // access internal do_handle_xxx_request
@@ -147,7 +152,7 @@ public:
     int state_machine_select(const std::string& cmd, std::string& query_out);
 
     // 状态机的快照处理
-    int append_chosen(uint64_t index, const std::string& val);
+    int append_chosen(uint64_t index, const std::string& marshal_value);
     int state_machine_snapshot();
 
     void consensus_notify() { consensus_notify_.notify_all(); }

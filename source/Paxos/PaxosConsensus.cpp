@@ -11,6 +11,8 @@
 #include <string/StrUtil.h>
 #include <other/FilesystemUtil.h>
 
+#include <RPC/RpcResponseMessage.h>
+
 #include <Protocol/Common.h>
 
 #include <Paxos/LevelDBLog.h>
@@ -416,7 +418,7 @@ int PaxosConsensus::state_machine_update(const std::string& cmd, std::string& ap
     uint64_t instance_id = proposer_->state().instanceID;
 
     // 发起propose
-    proposer_->propose(cmd);
+    proposer_->propose(instance_id, cmd);
 
     // 等待发起的值被Chosen以及状态机执行
     while (state_machine_->apply_instance_id() < instance_id) {
@@ -428,9 +430,26 @@ int PaxosConsensus::state_machine_update(const std::string& cmd, std::string& ap
     response.set_code(0);
     response.set_msg("OK");
 
-    std::string content;
-    if (state_machine_->fetch_response_msg(instance_id, content))
-        response.set_context(content);
+    do {
+
+        ApplyResponseType content;
+        if (!state_machine_->fetch_response_msg(instance_id, content)) {
+            roo::log_err("Find statemachine response failed for instance %lu.", instance_id);
+            break;
+        }
+
+        if (content.node_id() != context_->kID) {
+            roo::log_err("node id different, get %lu expect %lu.", content.node_id(), context_->kID);
+            response.set_code(static_cast<int32_t>(tzrpc::RpcResponseStatus::INSTANCE_CONFLICT));
+            response.set_msg("INSTANCE冲突");
+            break;
+        }
+
+        response.set_context(content.data());
+
+        // 业务可以处理其他的字段：code context ...
+
+    } while (0);
 
     roo::ProtoBuf::marshalling_to_string(response, &apply_out);
 
@@ -462,22 +481,14 @@ int PaxosConsensus::state_machine_select(const std::string& cmd, std::string& qu
 }
 
 // 此处只会写入日志，当状态机发现日志不完整的时候，会自动向其他Peer发起学习请求
-int PaxosConsensus::append_chosen(uint64_t index, const std::string& val) {
+int PaxosConsensus::append_chosen(uint64_t index, const std::string& marshal_value) {
 
     if (index > log_meta_->last_index() + 1) {
         PANIC("LearnLog GAP found, desired %lu, but last_index %lu.",
               index, log_meta_->last_index() + 1);
     }
 
-    auto entry = std::make_shared<LogIf::Entry>();
-    if (!entry) {
-        roo::log_err("Create new entry failed.");
-        return -1;
-    }
-
-    entry->set_data(val);
-
-    auto code = log_meta_->append(index, entry);
+    auto code = log_meta_->append(index, marshal_value);
     state_machine_->notify_state_machine();
 
     return code;

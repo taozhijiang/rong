@@ -11,8 +11,6 @@
 #include <xtra_rhel.h>
 #include <other/Log.h>
 
-#include <Protocol/gen-cpp/Paxos.pb.h>
-
 #include <Paxos/PaxosConsensus.h>
 #include <Paxos/LogIf.h>
 #include "BasicState.h"
@@ -81,16 +79,7 @@ private:
                 break;
             }
 
-            // do add the log
-            auto entry = std::make_shared<LogIf::Entry>();
-            if (!entry) {
-                roo::log_err("Create new entry failed.");
-                break;
-            }
-
-            entry->set_data(request.value());
-
-            log_meta_->append(request.instance_id(), entry);
+            log_meta_->append(request.instance_id(), request.value());
             paxos_consensus_.state_machine_notify();
 
         } while (0);
@@ -166,15 +155,7 @@ private:
                 break;
             }
 
-            // do add the log
-            auto entry = std::make_shared<LogIf::Entry>();
-            if (!entry) {
-                roo::log_err("Create new entry failed.");
-                break;
-            }
-
-            entry->set_data(response.value());
-            log_meta_->append(response.instance_id(), entry);
+            log_meta_->append(response.instance_id(), response.value());
 
             // 通知状态机执行更新
             paxos_consensus_.state_machine_notify();

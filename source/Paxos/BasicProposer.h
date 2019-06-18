@@ -10,8 +10,7 @@
 
 #include <xtra_rhel.h>
 #include <other/Log.h>
-
-#include <Protocol/gen-cpp/Paxos.pb.h>
+#include <message/ProtoBuf.h>
 
 #include <Paxos/PaxosConsensus.h>
 #include "BasicState.h"
@@ -20,6 +19,7 @@ namespace rong {
 
 class BasicProposer {
 
+
 public:
     BasicProposer(PaxosConsensus& paxos_consensus) :
         paxos_consensus_(paxos_consensus) {
@@ -27,9 +27,18 @@ public:
     }
 
     // 接收客户端发起提案请求
-    bool propose(const std::string& value) {
+    bool propose(uint64_t instance_id, const std::string& value) {
 
-        state_.value = value;
+        EntryType entry_content;
+        entry_content.set_instance_id(instance_id);
+        entry_content.set_node_id(paxos_consensus_.context_->kID);
+        entry_content.set_data(value);
+        entry_content.set_context("test_context");
+
+        std::string marshal_value;
+        entry_content.SerializeToString(&marshal_value);
+
+        state_.value = marshal_value;
 
 #if 0
         // leader, 首次提起
@@ -133,6 +142,7 @@ public:
              * so it's ok
              */
 
+            // 我们记录最大proposalID对应的value，然后在第二阶段的时候propose这个value
             state_.highestReceivedProposalID = response.accepted_proposal_id();
             state_.value = response.value();
             granted_.insert(response.node_id());
@@ -202,7 +212,7 @@ public:
             message.set_node_id(paxos_consensus_.context_->kID);
             message.set_proposal_id(state_.proposalID);
             message.set_instance_id(state_.instanceID);
-            message.set_value(state_.value);
+            message.set_value(state_.value);    // 发送的是marshal后的指令
             message.set_log_last_index(paxos_consensus_.log_meta_->last_index());
 
             paxos_consensus_.send_paxos_basic(message);

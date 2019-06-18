@@ -31,6 +31,7 @@ public:
 
     bool init(const MetaDataType& meta);
 
+    // 获取全局单调递增的proposalID序列号
     uint64_t next_proposal_id(uint64_t hint) const;
 
     bool startup_instance(uint64_t& curr_instance_id);

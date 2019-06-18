@@ -40,6 +40,8 @@ enum class RpcClientStatus : uint8_t {
 
     REQUEST_PROXY_ERROR = 7, // 非Leader节点转发客户端请求失败
 
+    INSTANCE_CONFLICT = 8,   // instance_id被占用的情况
+
     // 同时被定义在  <RPC/RpcResponseMessage.h>
     // 以上部分是和服务端相互兼容的，客户端和服务端必须同时改动
     

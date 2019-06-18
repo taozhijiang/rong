@@ -47,7 +47,7 @@ struct BasicProposerState {
     uint64_t    proposalID;
     uint64_t    highestReceivedProposalID;
     uint64_t    highestPromisedProposalID;
-    std::string value;
+    std::string value;           // 序列化后的Entry
     bool        leader;          // multi paxos
     unsigned    numProposals;    // number of proposal runs in this Paxos round
 };
@@ -72,21 +72,10 @@ struct BasicAcceptorState {
     std::string acceptedValue;
 };
 
-// not used
+// not used currently
 struct BasicLearnerState {
-
-    void init() {
-        learned = 0;
-        value.clear();
-    }
-
-    void startup() {
-        init();
-    }
-
-// member
-    bool        learned;
-    std::string value;
+    void init() {}
+    void startup() { init(); }
 };
 
 

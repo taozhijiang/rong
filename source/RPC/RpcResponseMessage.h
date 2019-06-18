@@ -42,6 +42,8 @@ enum class RpcResponseStatus : uint8_t {
     NOT_LEADER      = 6,     // Raft中请求到非Leader节点
 
     REQUEST_PROXY_ERROR = 7, // 非Leader节点转发客户端请求失败
+
+    INSTANCE_CONFLICT = 8,   // instance_id被占用的情况
 };
 
 // Message已经能保证RPC的消息被完整的接收了，所以这边不需要保存msg的长度了

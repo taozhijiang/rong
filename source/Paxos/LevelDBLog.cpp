@@ -92,6 +92,14 @@ LevelDBLog::~LevelDBLog() {
 
 uint64_t LevelDBLog::append(uint64_t index, const EntryPtr& newEntry) {
 
+    std::string buf;
+    newEntry->SerializeToString(&buf);
+
+    return append(index, buf);
+}
+
+uint64_t LevelDBLog::append(uint64_t index, const std::string& marshalEntry) {
+    
     std::lock_guard<std::mutex> lock(log_mutex_);
 
     // GAP ...
@@ -106,10 +114,8 @@ uint64_t LevelDBLog::append(uint64_t index, const EntryPtr& newEntry) {
 
     // index == last_index_ + 1
 
-    std::string buf;
-    newEntry->SerializeToString(&buf);
     last_index_++;
-    log_meta_fp_->Put(leveldb::WriteOptions(), Endian::uint64_to_net(last_index_), buf);
+    log_meta_fp_->Put(leveldb::WriteOptions(), Endian::uint64_to_net(last_index_), marshalEntry);
 
     return last_index_;
 }

@@ -82,16 +82,26 @@ void StateMachine::state_machine_loop() {
             continue;
         }
 
+        // 无论成功失败，都前进
         entry = log_meta_->entry(apply_instance_id_ + 1);
 
-        // 无论成功失败，都前进
+        ApplyResponseType resp {};
+        resp.set_instance_id(entry->instance_id());
+        resp.set_node_id(entry->node_id());
+        resp.set_context(entry->context());
+        
         std::string content;
-        if (do_apply(entry, content) == 0) {
-            if (!content.empty()) {
-                std::lock_guard<std::mutex> lock(apply_rsp_mutex_);
-                apply_rsp_[apply_instance_id_ + 1] = content;
-            }
+        int code = do_apply(entry, content);
+        if (code == 0)
+            resp.set_data(content);
+        resp.set_code(code);
+
+        {
+            // local store 
+            std::lock_guard<std::mutex> lock(apply_rsp_mutex_);
+            apply_rsp_[apply_instance_id_ + 1] = resp;
         }
+
         roo::log_info("Applied entry at current processing apply_index %lu.",
                       apply_instance_id_ + 1);
 
@@ -135,7 +145,7 @@ int StateMachine::do_apply(LogIf::EntryPtr entry, std::string& content_out) {
 }
 
 
-bool StateMachine::fetch_response_msg(uint64_t instance_id, std::string& content) {
+bool StateMachine::fetch_response_msg(uint64_t instance_id, ApplyResponseType& content) {
 
     std::lock_guard<std::mutex> lock(apply_rsp_mutex_);
 

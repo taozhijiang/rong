@@ -17,6 +17,8 @@
 #include <Paxos/LogIf.h>
 #include <Paxos/StoreIf.h>
 
+#include <Protocol/gen-cpp/Paxos.pb.h>
+
 // 简易的KV存储支撑
 
 namespace rong {
@@ -29,6 +31,10 @@ enum class SnapshotProgress : uint8_t {
 };
 
 class RaftConsensus;
+
+
+typedef Paxos::Entry         EntryType;
+typedef Paxos::ApplyResponse ApplyResponseType;
 
 
 class StateMachine {
@@ -54,7 +60,7 @@ public:
     uint64_t apply_instance_id() const { return apply_instance_id_; }
     void set_apply_instance_id(uint64_t instance_id) { apply_instance_id_ = instance_id; }
 
-    bool fetch_response_msg(uint64_t instance_id, std::string& content);
+    bool fetch_response_msg(uint64_t instance_id, ApplyResponseType& content);
 
 private:
 
@@ -75,7 +81,7 @@ private:
 
     // 保存状态机的执行结果
     std::mutex apply_rsp_mutex_;
-    std::map<uint16_t, std::string> apply_rsp_;
+    std::map<uint64_t, ApplyResponseType> apply_rsp_;
 
     bool main_executor_stop_;
     std::thread main_executor_;
