@@ -225,7 +225,7 @@ int PaxosConsensus::handle_paxos_basic_request(const Paxos::BasicMessage& reques
     } else if (request.type() == Paxos::kBProposeLearnValue ||
                request.type() == Paxos::kBProposeChosenValue) {
 
-        // skip local message
+        // skip local message of learn
         if (request.node_id() == context_->kID)
             return 0;
 
@@ -233,7 +233,8 @@ int PaxosConsensus::handle_paxos_basic_request(const Paxos::BasicMessage& reques
 
         if (request.type() == Paxos::kBProposeLearnValue) {
 
-            // 如果本机的日志不全
+            // 针对Proposer机器达成一致性之后，会向所有的Node发起Learn请求
+            // 如果接收到消息的本地日志不全，会向指定的Node反向发起日志请求
             if (response.instance_id() < request.instance_id()) {
                 Paxos::BasicMessage message{};
                 message.set_type(Paxos::kBProposeChosenValue);
@@ -281,11 +282,12 @@ int PaxosConsensus::handle_paxos_basic_response(Paxos::BasicMessage response) {
         return 0;
     } else if (response.type() == Paxos::kBProposeLearnResponse ||
                response.type() == Paxos::kBProposeChosenResponse) {
+        
         learner_->on_learn_response(response);
 
+        // 对于日志没有满足，会一直循环向指定节点发送
         if (response.type() == Paxos::kBProposeChosenResponse) {
 
-            // 如果本机的日志不全，则主动发起学习
             if (log_meta_->last_index() < response.log_last_index()) {
                 Paxos::BasicMessage message{};
                 message.set_type(Paxos::kBProposeChosenValue);
@@ -438,6 +440,8 @@ int PaxosConsensus::state_machine_update(const std::string& cmd, std::string& ap
             break;
         }
 
+        // 通过这种方式判断InstanceID是否被占用应该是安全的，无论是对于同一个
+        // InstanceID的活锁冲突，还是对于过于陈旧的Node发起请求
         if (content.node_id() != context_->kID) {
             roo::log_err("node id different, get %lu expect %lu.", content.node_id(), context_->kID);
             response.set_code(static_cast<int32_t>(tzrpc::RpcResponseStatus::INSTANCE_CONFLICT));

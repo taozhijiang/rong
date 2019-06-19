@@ -15,26 +15,36 @@ namespace rong {
 
 struct LeaseProposerState {
 
-    bool active() const {
+    bool active() {
         return (preparing || proposing);
     }
-    
+
     void init() {
         preparing   = false;
         proposing   = false;
+        instanceID  = 0;
         proposalID  = 0;
         highestReceivedProposalID = 0;
+        leaseOwner  = 0;
         expireTime  = 0;
     }
-    
+
+    void startup() {
+        preparing   = false;
+        proposing   = false;
+        highestReceivedProposalID = 0;
+        leaseOwner  = 0;
+        expireTime  = 0;
+    }
+
     // member
     bool        preparing;
     bool        proposing;
+    uint64_t    instanceID;      // 当前实例的标识号
     uint64_t    proposalID;
     uint64_t    highestReceivedProposalID;
-    unsigned    leaseOwner;
+    uint64_t    leaseOwner;
     uint64_t    expireTime;
-
 };
 
 struct LeaseAcceptorState {
@@ -62,8 +72,8 @@ struct LeaseAcceptorState {
     uint64_t    promisedProposalID;
     bool        accepted;
     uint64_t    acceptedProposalID;
-    unsigned    acceptedLeaseOwner;
-    unsigned    acceptedDuration;
+    uint64_t    acceptedLeaseOwner;
+    uint64_t    acceptedDuration;
     uint64_t    acceptedExpireTime;
 };
 
@@ -86,7 +96,7 @@ struct LeaseLearnerState {
     
     // member
     bool        learned;
-    unsigned    leaseOwner;
+    uint64_t    leaseOwner;
     uint64_t    expireTime;
     uint64_t    leaseEpoch;
 };

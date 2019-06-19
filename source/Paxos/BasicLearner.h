@@ -107,24 +107,26 @@ private:
 
         do {
 
-            if (request.instance_id() == 0)
+            if (request.instance_id() == 0) {
+                roo::log_warning("Request chosen_value with instance_id, from peer %lu.", request.node_id());
                 break;
+            }
 
             // 日志不存在
             if (request.instance_id() > log_meta_->last_index()) {
-                roo::log_err("request log at %lu not found, current last_index %lu.",
-                             request.instance_id(), log_meta_->last_index());
+                roo::log_err("from node %lu request log at %lu not found, current last_index %lu.",
+                             request.node_id(), request.instance_id(), log_meta_->last_index());
                 response.set_instance_id(log_meta_->last_index());
                 break;
             }
 
             // do add the log
-            auto entry = log_meta_->entry(request.instance_id());
-            if (!entry) {
+            std::string entry = log_meta_->entry_marshal(request.instance_id());
+            if (entry.empty()) {
                 PANIC("request log at %lu not found!", request.instance_id());
             }
 
-            response.set_value(entry->data());
+            response.set_value(entry);
 
         } while (0);
 

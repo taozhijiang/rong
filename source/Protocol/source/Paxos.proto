@@ -67,10 +67,10 @@ enum BasicMessageType {
     kBProposeRejected       = 6;
     kBProposeAccepted       = 7;
 
-    kBProposeLearnValue     = 8;    // learner发送具体的value让Peer学习
+    kBProposeLearnValue     = 8;    // 当Proposer所在节点达成一致性后，对应的Learner会向所有节点发送Learn消息
     kBProposeLearnResponse  = 9;
 
-    kBProposeChosenValue    = 10;   // 对于缺少的value，主动请求学习
+    kBProposeChosenValue    = 10;   // 对于缺少的value，主动向日志更多的Node请求学习
     kBProposeChosenResponse = 11;   // 返回信息
 
     kBProposeStartCatchup   = 12;   // 快照

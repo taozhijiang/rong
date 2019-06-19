@@ -71,7 +71,9 @@ public:
 
         granted_.clear();
         rejected_.clear();
-        granted_.insert(paxos_consensus_.context_->kID);
+   
+        // 因为是会发送消息给自己来响应的，所以这边就不进行手动插入了
+        // granted_.insert(paxos_consensus_.context_->kID);
 
         roo::log_info("Start Prepare with instanceID %lu proposalID 0x%016lx from node %lu.",
                       state_.instanceID, state_.proposalID, paxos_consensus_.context_->kID);
@@ -97,7 +99,9 @@ public:
 
         granted_.clear();
         rejected_.clear();
-        granted_.insert(paxos_consensus_.context_->kID);
+
+        // 因为是会发送消息给自己来响应的，所以这边就不进行手动插入了
+        // granted_.insert(paxos_consensus_.context_->kID);
 
         roo::log_info("Start Propose with instanceID %lu proposalID 0x%016lx from node %lu.",
                       state_.instanceID, state_.proposalID, paxos_consensus_.context_->kID);
@@ -197,8 +201,11 @@ public:
 
         if (granted_.size() >= paxos_consensus_.quorum_count()) {
             roo::log_warning("good for value chosen at instance_id %lu, proposal_id 0x%016lx, "
-                             "value size %lu.",
+                             "chosen value size %lu.",
                              state_.instanceID, state_.proposalID, state_.value.size());
+
+            // 关闭 Propose阶段
+            state_.proposing = false;
 
             // 关闭定时器
             paxos_consensus_.prepare_propose_timer_.disable();

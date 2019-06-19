@@ -85,6 +85,11 @@ void StateMachine::state_machine_loop() {
         // 无论成功失败，都前进
         entry = log_meta_->entry(apply_instance_id_ + 1);
 
+        if (entry->instance_id() != apply_instance_id_ + 1) {
+            PANIC("StateMachine entry instance_id %lu not match with log_index %lu.",
+                  entry->instance_id(), apply_instance_id_ + 1);
+        }
+
         ApplyResponseType resp {};
         resp.set_instance_id(entry->instance_id());
         resp.set_node_id(entry->node_id());

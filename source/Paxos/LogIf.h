@@ -49,11 +49,18 @@ public:
 
     // 这里不是严格意义上的追加，而是应该再accept成功之后再添加指定instance_id索引位置的日志
     // 如果成功则返回值和传递的paxosId是一致的，否则就返回last_index
+    //
+    // 增加对instance_id的校验
+
     virtual uint64_t append(uint64_t index, const EntryPtr& newEntry) = 0;
     virtual uint64_t append(uint64_t index, const std::string& marshalEntry) = 0;
 
     virtual EntryPtr entry(uint64_t index) const = 0;
-    virtual bool     entries(uint64_t start, std::vector<EntryPtr>& entries, uint64_t limit = 0) const = 0;
+    virtual std::string entry_marshal(uint64_t index) const = 0;
+
+    virtual bool entries(uint64_t start, std::vector<EntryPtr>& newEntries, uint64_t limit = 0) const = 0;
+    virtual bool entries(uint64_t start, std::vector<std::string>& marshalEntries, uint64_t limit = 0) const = 0;
+    
 
     virtual uint64_t start_index() const = 0;
     virtual uint64_t last_index() const = 0;

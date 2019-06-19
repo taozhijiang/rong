@@ -29,7 +29,10 @@ public:
     uint64_t append(uint64_t index, const std::string& marshalEntry)override;
 
     EntryPtr entry(uint64_t index) const override;
-    bool     entries(uint64_t start, std::vector<EntryPtr>& entries, uint64_t limit) const override;
+    std::string entry_marshal(uint64_t index) const override;
+
+    bool entries(uint64_t start, std::vector<EntryPtr>& marshalEntries, uint64_t limit) const override;
+    bool entries(uint64_t start, std::vector<std::string>& marshalEntries, uint64_t limit) const override;
 
     uint64_t start_index() const override {
         return start_index_;

@@ -90,16 +90,15 @@ LevelDBLog::~LevelDBLog() {
     log_meta_fp_.reset();
 }
 
-uint64_t LevelDBLog::append(uint64_t index, const EntryPtr& newEntry) {
-
-    std::string buf;
-    newEntry->SerializeToString(&buf);
-
-    return append(index, buf);
-}
-
 uint64_t LevelDBLog::append(uint64_t index, const std::string& marshalEntry) {
+       
+    auto entry = std::make_shared<Entry>();
+    entry->ParseFromString(marshalEntry);
     
+    if (entry->instance_id() != index) {
+        PANIC("entry instance_id %lu doesnot match index %lu", entry->instance_id(), index);
+    }
+
     std::lock_guard<std::mutex> lock(log_mutex_);
 
     // GAP ...
@@ -117,10 +116,41 @@ uint64_t LevelDBLog::append(uint64_t index, const std::string& marshalEntry) {
     last_index_++;
     log_meta_fp_->Put(leveldb::WriteOptions(), Endian::uint64_to_net(last_index_), marshalEntry);
 
+    return last_index_; 
+}
+
+uint64_t LevelDBLog::append(uint64_t index, const EntryPtr& newEntry) {
+    
+    std::lock_guard<std::mutex> lock(log_mutex_);
+
+    // consist check
+    if (newEntry->instance_id() != index) {
+        PANIC("entry instance_id %lu doesnot match index %lu", newEntry->instance_id(), index);
+    }
+
+    // GAP ...
+    if (index < last_index_ + 1) {
+        roo::log_info("fast return with index %lu, last_index %lu.", index, last_index_);
+        return last_index_;
+    }
+
+    if (index > last_index_ + 1) {
+        PANIC("LearnLog GAP found, index %lu and last_index+1 %lu.", index, last_index_ + 1);
+    }
+
+    // index == last_index_ + 1
+
+    std::string buf;
+    newEntry->SerializeToString(&buf);
+    last_index_++;
+    log_meta_fp_->Put(leveldb::WriteOptions(), Endian::uint64_to_net(last_index_), buf);
+
     return last_index_;
 }
 
 LevelDBLog::EntryPtr LevelDBLog::entry(uint64_t index) const {
+
+    std::lock_guard<std::mutex> lock(log_mutex_);
 
     std::string val;
     leveldb::Status status = log_meta_fp_->Get(leveldb::ReadOptions(), Endian::uint64_to_net(index), &val);
@@ -132,6 +162,20 @@ LevelDBLog::EntryPtr LevelDBLog::entry(uint64_t index) const {
     EntryPtr entry = std::make_shared<Entry>();
     entry->ParseFromString(val);
     return entry;
+}
+
+std::string LevelDBLog::entry_marshal(uint64_t index) const {
+
+    std::lock_guard<std::mutex> lock(log_mutex_);
+
+    std::string val;
+    leveldb::Status status = log_meta_fp_->Get(leveldb::ReadOptions(), Endian::uint64_to_net(index), &val);
+    if (!status.ok()) {
+        roo::log_err("Read entry at index %lu failed.", index);
+        return "";
+    }
+
+    return val;
 }
 
 bool LevelDBLog::entries(uint64_t start, std::vector<EntryPtr>& entries, uint64_t limit) const {
@@ -159,6 +203,39 @@ bool LevelDBLog::entries(uint64_t start, std::vector<EntryPtr>& entries, uint64_
         entry->ParseFromString(val);
         entries.emplace_back(entry);
 
+        // 超过单次取限额之后跳出
+        if (limit != 0 && ++count > limit)
+            break;
+    }
+
+    return true;
+}
+
+
+bool LevelDBLog::entries(uint64_t start, std::vector<std::string>& marshal_entries, uint64_t limit) const {
+
+    std::lock_guard<std::mutex> lock(log_mutex_);
+
+    if (start < start_index_)
+        start = start_index_;
+
+    // 在peer和leader日志一致的时候，就会是这种情况
+    if (start > last_index_) {
+        return true;
+    }
+
+    uint64_t count = 0;
+    for (; start <= last_index_; ++start) {
+        std::string val;
+        leveldb::Status status = log_meta_fp_->Get(leveldb::ReadOptions(), Endian::uint64_to_net(start), &val);
+        if (!status.ok()) {
+            roo::log_err("Read entries at index %lu failed.", start);
+            return false;
+        }
+
+        marshal_entries.emplace_back(val);
+
+        // 超过单次取限额之后跳出
         if (limit != 0 && ++count > limit)
             break;
     }

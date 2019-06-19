@@ -44,7 +44,7 @@ public:
     void on_prepare_request(const Paxos::BasicMessage& request, Paxos::BasicMessage& response) {
 
         roo::log_info("Current local instance_id %lu, promised_proposal_id 0x%016lx, "
-                      "        request instance_id %lu, proposal_id: 0x%016lx.",
+                      "request instance_id %lu, proposal_id: 0x%016lx.",
                       paxos_consensus_.current_instance_id(), state_.promisedProposalID,
                       request.instance_id(), request.proposal_id());
 
@@ -82,7 +82,7 @@ public:
     void on_propose_request(const Paxos::BasicMessage& request, Paxos::BasicMessage& response) {
 
         roo::log_info("Current local instance_id %lu, promised_proposal_id 0x%016lx, "
-                      "        request instance_id %lu, proposal_id: %lu.",
+                      "request instance_id %lu, proposal_id: %lu.",
                       paxos_consensus_.current_instance_id(), state_.promisedProposalID,
                       request.instance_id(), request.proposal_id());
 
