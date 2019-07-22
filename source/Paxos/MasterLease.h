@@ -10,6 +10,8 @@
 
 #include <xtra_rhel.h>
 #include <thread>
+#include <mutex>
+#include <condition_variable> 
 
 #include <Paxos/Clock.h>
 #include <Paxos/Option.h>

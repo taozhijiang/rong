@@ -24,13 +24,22 @@ Context::Context(uint64_t id, std::unique_ptr<LogIf>& log_meta) :
 
 bool Context::init(const MetaDataType& meta) {
 
+    // 异常的时候可以尝试删除 META_信息，这样系统可以从一个已经提交的instanceID开始接收请求
+    // 
+
     if (meta.has_highest_instance_id())
         highest_instance_id_ = meta.highest_instance_id();
     if (meta.has_restart_counter())
         restart_counter_ = meta.restart_counter();
 
     if (meta.has_instance_id() && highest_instance_id_ < meta.instance_id()) {
+        roo::log_warning("update highest_instance_id from %lu to %lu.", highest_instance_id_, meta.instance_id());
         highest_instance_id_ = meta.instance_id();
+    }
+
+    if (highest_instance_id_ < log_meta_->last_index()) {
+        roo::log_warning("update highest_instance_id from %lu to %lu.", highest_instance_id_, log_meta_->last_index());
+        highest_instance_id_ = log_meta_->last_index();
     }
 
     roo::log_info("Full Context info: \n%s", this->str().c_str());
